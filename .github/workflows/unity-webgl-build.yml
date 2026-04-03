@@ -20,13 +20,16 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/Unity-Technologies/EndlessRunnerSampleGame.git /tmp/trash-dash
 
-      - name: Copy reskin scripts into project
+      - name: Copy reskin scripts into project and commit
         run: |
           cp templates/unity-scripts/TextureSwapper.cs /tmp/trash-dash/Assets/Scripts/
           cp templates/unity-scripts/SkinLoader.cs /tmp/trash-dash/Assets/Scripts/
           cp templates/unity-scripts/GamePauser.cs /tmp/trash-dash/Assets/Scripts/
           mkdir -p /tmp/trash-dash/Assets/Plugins/WebGL/
           cp templates/unity-scripts/Plugins/WebGL/WebGLBridge.jslib /tmp/trash-dash/Assets/Plugins/WebGL/
+          cd /tmp/trash-dash
+          git add -A
+          git commit -m "Add reskin scripts" --allow-empty
 
       - name: Free disk space
         run: |
