@@ -1,0 +1,30 @@
+# Public Domain Skin: Dracula (Bram Stoker, 1897)
+name: "DraculaGothic"
+style_prompt: "Dracula gothic horror aesthetic, Transylvanian castle architecture, dark crimson and midnight purple palette, bat silhouettes, full moon skybox, cobblestone streets, iron gates, candelabras, fog and mist particles, gothic stained glass, Victorian horror style, blood red accents on black"
+author: "ReskinStudio"
+description: "Transforms a Subway Surfers-style Unity game into a gothic Transylvania runner"
+version: "1.0.0"
+
+unity_project_path: "../test_project"
+output_dir: "../output/dracula_gothic"
+output_mode: "project"
+
+backend: "lucy"
+atlas_mode: "auto"
+
+categories:
+  - characters
+  - environment
+  - ui
+  - collectibles
+  - particles
+  - sprites
+
+quality:
+  strength: 0.85
+  guidance_scale: 8.5
+  steps: 35
+  output_format: "png"
+  preserve_pbr: true
+  tile_seam_fix: true
+  consistency_pass: true
