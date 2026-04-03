@@ -1,0 +1,80 @@
+name: Build Unity WebGL
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'templates/unity-scripts/**'
+
+jobs:
+  build:
+    name: Build Trash Dash WebGL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout reskin pipeline
+        uses: actions/checkout@v4
+
+      - name: Clone Trash Dash
+        run: |
+          git clone --depth 1 https://github.com/Unity-Technologies/EndlessRunnerSampleGame.git /tmp/trash-dash
+
+      - name: Copy reskin scripts into project
+        run: |
+          cp templates/unity-scripts/TextureSwapper.cs /tmp/trash-dash/Assets/Scripts/
+          cp templates/unity-scripts/SkinLoader.cs /tmp/trash-dash/Assets/Scripts/
+          cp templates/unity-scripts/GamePauser.cs /tmp/trash-dash/Assets/Scripts/
+          mkdir -p /tmp/trash-dash/Assets/Plugins/WebGL/
+          cp templates/unity-scripts/Plugins/WebGL/WebGLBridge.jslib /tmp/trash-dash/Assets/Plugins/WebGL/
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: /tmp/trash-dash/Library
+          key: unity-library-${{ hashFiles('/tmp/trash-dash/Assets/**') }}
+          restore-keys: unity-library-
+
+      - name: Build WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: /tmp/trash-dash
+          targetPlatform: WebGL
+          unityVersion: 2021.3.6f1
+          buildName: TrashDash
+          buildsPath: /tmp/builds
+
+      - name: Prepare build output
+        run: |
+          ls -la /tmp/builds/WebGL/TrashDash/ || ls -la /tmp/builds/WebGL/
+          # Copy the real WebGL template over the placeholder
+          cp templates/unity-webgl/index.html /tmp/builds/WebGL/TrashDash/index.html || true
+
+      - name: Upload WebGL build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webgl-build
+          path: /tmp/builds/WebGL/TrashDash/
+          retention-days: 90
+
+      - name: Deploy build to branch
+        run: |
+          # Create a webgl-build branch with just the build output
+          cd /tmp/builds/WebGL/TrashDash
+          git init
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git checkout -b webgl-build
+          git add -A
+          git commit -m "WebGL build $(date -u +%Y%m%d-%H%M%S)"
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push -f origin webgl-build
