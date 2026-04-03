@@ -2,63 +2,50 @@ import { useEffect, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "";
 
-const CHARACTERS = [
-  { name: "Jake", color: "#2196F3", emoji: "🛹" },
-  { name: "Tricky", color: "#E91E63", emoji: "🎧" },
-  { name: "Fresh", color: "#4CAF50", emoji: "🎤" },
-  { name: "Yutani", color: "#9C27B0", emoji: "🛸" },
-  { name: "Spike", color: "#F44336", emoji: "🔥" },
-];
-
-const TEXTURES = ["Body", "Face", "Shoes", "Board", "Hat"];
-
 const SKINS = [
   { id: "dracula", label: "Dracula", color: "#8B0000", emoji: "🧛",
-    prompt: "Dracula gothic horror aesthetic, Transylvanian castle architecture, dark crimson and midnight purple palette, bat silhouettes, cobblestone streets, iron gates, fog particles, gothic stained glass, Victorian horror style, blood red accents on black" },
+    prompt: "Dracula gothic horror aesthetic, dark crimson and midnight purple palette, bat silhouettes, cobblestone, iron gates, fog, gothic stained glass, Victorian horror, blood red accents on black" },
   { id: "alice", label: "Alice", color: "#5B9BD5", emoji: "🐇",
-    prompt: "Alice in Wonderland aesthetic, whimsical Victorian fantasy, playing card motifs, checkerboard patterns, oversized mushrooms, teacup and pocket watch details, pastel purple and teal palette, storybook illustration style" },
+    prompt: "Alice in Wonderland aesthetic, whimsical Victorian fantasy, playing card motifs, checkerboard, oversized mushrooms, teacup details, pastel purple and teal, storybook illustration" },
   { id: "robinhood", label: "Robin Hood", color: "#2E8B57", emoji: "🏹",
-    prompt: "Robin Hood medieval forest aesthetic, Sherwood Forest deep greens and earthy browns, medieval village, wooden architecture, archery targets, leaf and vine motifs, golden treasure coins, rustic hand-painted style" },
+    prompt: "Robin Hood medieval forest, Sherwood Forest deep greens and browns, medieval village, wooden architecture, archery targets, leaf and vine motifs, rustic hand-painted style" },
   { id: "oz", label: "Wizard of Oz", color: "#6495ED", emoji: "👠",
-    prompt: "Wizard of Oz aesthetic, yellow brick road textures, emerald green Emerald City architecture, poppy fields, tornado particles, ruby red and emerald green palette, whimsical storybook style, rainbow skybox" },
+    prompt: "Wizard of Oz aesthetic, yellow brick road, emerald green Emerald City, poppy fields, tornado, ruby red and emerald green, whimsical storybook, rainbow" },
   { id: "frankenstein", label: "Frankenstein", color: "#4A6741", emoji: "🧟",
-    prompt: "Frankenstein gothic laboratory aesthetic, dark stone castle, electrical sparks and lightning, green-tinted torchlight, bubbling chemistry equipment, stitched leather, stormy night, mad science horror style" },
+    prompt: "Frankenstein gothic laboratory, dark stone castle, electrical sparks, green-tinted torchlight, bubbling chemistry, stitched leather, stormy night, mad science horror" },
   { id: "cyberpunk", label: "Cyberpunk", color: "#ff00ff", emoji: "🌆",
-    prompt: "cyberpunk neon aesthetic, glowing edges, dark background with vibrant pink and cyan accents, holographic shimmer, futuristic sci-fi, neon signs, circuit board patterns" },
+    prompt: "cyberpunk neon aesthetic, glowing edges, dark background, vibrant pink and cyan accents, holographic shimmer, futuristic sci-fi, neon signs, circuit board patterns" },
 ];
 
 export default function App() {
-  const [charIdx, setCharIdx] = useState(0);
+  const [demoInfo, setDemoInfo] = useState(null);
+  const [selectedCat, setSelectedCat] = useState("Graffiti");
   const [skinIdx, setSkinIdx] = useState(0);
-  const [customPrompt, setCustomPrompt] = useState("");
   const [useCustom, setUseCustom] = useState(false);
-  const [results, setResults] = useState([]);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [strength, setStrength] = useState(0.80);
   const [status, setStatus] = useState("idle");
   const [statusMsg, setStatusMsg] = useState("");
-  const [strength, setStrength] = useState(0.80);
-  const [bakedSkins, setBakedSkins] = useState({});  // {skinId: {charName: {texName: url}}}
+  const [results, setResults] = useState([]);
+  const [bakedSkins, setBakedSkins] = useState({});
 
-  const char = CHARACTERS[charIdx];
   const skin = useCustom ? null : SKINS[skinIdx];
   const activePrompt = useCustom ? customPrompt : skin?.prompt || "";
-  const activeSkinId = useCustom ? `custom_${customPrompt.slice(0, 20).replace(/\s/g, "_")}` : skin?.id;
+  const activeSkinId = useCustom ? "custom" : skin?.id;
 
-  // Load already-baked skins on mount
+  // Load demo info on mount
   useEffect(() => {
+    fetch(`${API}/api/demo/info`).then(r => r.json()).then(setDemoInfo).catch(() => {});
     fetch(`${API}/api/skins`).then(r => r.json()).then(data => {
       const map = {};
-      for (const s of data.skins || []) {
-        map[s.skin_id] = s.textures;
-      }
+      for (const s of data.skins || []) map[s.skin_id] = s;
       setBakedSkins(map);
     }).catch(() => {});
   }, []);
 
-  // Check if current skin is already baked for current character
-  const isBaked = !useCustom && bakedSkins[skin?.id]?.[char.name];
-  const bakedTextures = isBaked ? bakedSkins[skin.id][char.name] : null;
+  const catInfo = demoInfo?.categories?.[selectedCat];
+  const isBaked = !useCustom && bakedSkins[skin?.id]?.textures?.[selectedCat];
 
-  // Bake skin (run Lucy once, save permanently)
   const bakeSkin = async () => {
     if (!activePrompt) return;
     setStatus("running");
@@ -69,7 +56,7 @@ export default function App() {
       skin_id: activeSkinId,
       style_prompt: activePrompt,
       strength: strength.toString(),
-      characters: char.name,  // only bake selected character (faster)
+      category: selectedCat,
     });
 
     try {
@@ -84,7 +71,6 @@ export default function App() {
         buf += decoder.decode(value, { stream: true });
         const lines = buf.split("\n");
         buf = lines.pop();
-
         for (const line of lines) {
           if (!line.trim()) continue;
           try {
@@ -94,17 +80,13 @@ export default function App() {
             if (ev.type === "done") {
               setStatus("done");
               setStatusMsg(ev.message);
-              // Refresh baked skins list
               fetch(`${API}/api/skins`).then(r => r.json()).then(data => {
                 const map = {};
-                for (const s of data.skins || []) map[s.skin_id] = s.textures;
+                for (const s of data.skins || []) map[s.skin_id] = s;
                 setBakedSkins(map);
               }).catch(() => {});
             }
-            if (ev.cls === "error") {
-              setStatus("error");
-              setStatusMsg(ev.message);
-            }
+            if (ev.cls === "error") { setStatus("error"); setStatusMsg(ev.message); }
           } catch {}
         }
       }
@@ -122,99 +104,108 @@ export default function App() {
           <span style={{ fontSize: 20, fontWeight: 700 }}>unity<span style={{ color: "#00d4aa" }}>.reskin</span></span>
           <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: "rgba(0,212,170,0.12)", color: "#00d4aa" }}>Unity</span>
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, color: "#6b6b80" }}>AI-powered game reskinning</span>
+          {demoInfo && (
+            <span style={{ fontSize: 12, color: "#6b6b80" }}>
+              {demoInfo.total_textures} real Unity textures from <span style={{ color: "#8888a0" }}>Trash Dash</span>
+            </span>
+          )}
         </div>
       </div>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px" }}>
 
-        {/* Step 1: Characters */}
+        {/* Project badge */}
+        <div style={{ background: "#12121a", borderRadius: 12, border: "1px solid #1e1e2e", padding: "14px 18px", marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 24 }}>🎮</span>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Unity Endless Runner Sample Game</div>
+            <div style={{ fontSize: 12, color: "#6b6b80" }}>Real Unity assets from Unity Technologies' Trash Dash — .meta files, materials, textures all intact</div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <a href="https://github.com/Unity-Technologies/EndlessRunnerSampleGame" target="_blank" rel="noopener"
+            style={{ fontSize: 11, color: "#7c5cfc", textDecoration: "none", border: "1px solid #2a2a3a", padding: "4px 10px", borderRadius: 6 }}>
+            View Source
+          </a>
+        </div>
+
+        {/* Step 1: Asset Category */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", color: "#7c5cfc", letterSpacing: 1, marginBottom: 10 }}>
-            Step 1 — Pick a character
+            Step 1 — Pick asset category
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-            {CHARACTERS.map((c, i) => {
-              const active = i === charIdx;
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            {demoInfo && Object.entries(demoInfo.categories).map(([catId, cat]) => {
+              const active = catId === selectedCat;
               return (
-                <button key={c.name} onClick={() => { setCharIdx(i); setResults([]); setStatus("idle"); }} style={{
-                  padding: 16, borderRadius: 14, border: active ? `2px solid ${c.color}` : "2px solid #1e1e2e",
-                  background: active ? c.color + "18" : "#12121a", cursor: "pointer",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-                  transition: "all 0.2s", transform: active ? "translateY(-3px)" : "none",
-                  boxShadow: active ? `0 6px 20px ${c.color}30` : "0 2px 4px rgba(0,0,0,0.2)",
+                <button key={catId} onClick={() => { setSelectedCat(catId); setResults([]); setStatus("idle"); }} style={{
+                  padding: 16, borderRadius: 14, border: active ? "2px solid #7c5cfc" : "2px solid #1e1e2e",
+                  background: active ? "rgba(124,92,252,0.1)" : "#12121a", cursor: "pointer",
+                  textAlign: "left", transition: "all 0.2s",
+                  boxShadow: active ? "0 4px 14px rgba(124,92,252,0.2)" : "none",
                 }}>
-                  <div style={{
-                    width: 64, height: 64, borderRadius: 32, overflow: "hidden",
-                    border: active ? `3px solid ${c.color}` : "3px solid #2a2a3a",
-                    boxShadow: active ? `0 0 0 4px ${c.color}30` : "none",
-                  }}>
-                    <img src={`${API}/api/demo/thumb/${c.name}/Body`}
-                      style={{ width: 64, height: 64, objectFit: "cover" }}
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: active ? "#a78bfa" : "#e4e4ef", marginBottom: 4 }}>
+                    {cat.label}
                   </div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: active ? c.color : "#b0b0c0" }}>{c.name}</span>
-                  <div style={{ display: "flex", gap: 3 }}>
-                    {TEXTURES.map(t => (
-                      <img key={t} src={`${API}/api/demo/thumb/${c.name}/${t}`}
-                        style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", border: "1px solid #2a2a3a" }}
-                        title={t}
-                        onError={(e) => { e.target.style.background = "#1a1a26"; }}
-                      />
-                    ))}
-                  </div>
+                  <div style={{ fontSize: 11, color: "#6b6b80", marginBottom: 8 }}>{cat.description}</div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#7c5cfc" }}>{cat.count} textures</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Step 2: Skins */}
+        {/* Texture gallery */}
+        {catInfo && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", color: "#6b6b80", letterSpacing: 1, marginBottom: 12 }}>
+              {catInfo.label} — {catInfo.count} textures (real Unity .png assets)
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${selectedCat === "Graffiti" ? 140 : 100}px, 1fr))`, gap: 10 }}>
+              {catInfo.textures.map(tex => (
+                <div key={tex.name} style={{ background: "#12121a", borderRadius: 10, border: "1px solid #1e1e2e", overflow: "hidden" }}>
+                  <img src={`${API}${tex.url}`} alt={tex.name}
+                    style={{ width: "100%", display: "block", aspectRatio: "1", objectFit: "cover", background: "#1a1a26" }}
+                    loading="lazy"
+                  />
+                  <div style={{ padding: "4px 8px", fontSize: 10, color: "#6b6b80", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {tex.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Pick Skin */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", color: "#7c5cfc", letterSpacing: 1, marginBottom: 10 }}>
-            Step 2 — Pick a skin
-            <span style={{ fontSize: 10, color: "#6b6b80", textTransform: "none", marginLeft: 8, letterSpacing: 0 }}>
-              Public domain — free to use, no licensing
-            </span>
+            Step 2 — Pick a skin <span style={{ fontSize: 10, color: "#6b6b80", textTransform: "none", letterSpacing: 0 }}>public domain — free to use</span>
           </div>
-
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             {SKINS.map((s, i) => {
               const active = !useCustom && i === skinIdx;
-              const alreadyBaked = !!bakedSkins[s.id];
+              const baked = !!bakedSkins[s.id]?.textures?.[selectedCat];
               return (
                 <button key={s.id} onClick={() => { setSkinIdx(i); setUseCustom(false); setResults([]); setStatus("idle"); }} style={{
-                  padding: "12px 16px", borderRadius: 12, minWidth: 100,
+                  padding: "10px 16px", borderRadius: 12, minWidth: 90,
                   border: active ? `2px solid ${s.color}` : "2px solid #1e1e2e",
                   background: active ? s.color + "18" : "#12121a",
-                  cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                  transition: "all 0.2s",
-                  transform: active ? "translateY(-2px)" : "none",
-                  boxShadow: active ? `0 4px 14px ${s.color}30` : "none",
-                  position: "relative",
+                  cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                  transition: "all 0.2s", transform: active ? "translateY(-2px)" : "none",
                 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 22, background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                    {s.emoji}
-                  </div>
+                  <span style={{ fontSize: 24 }}>{s.emoji}</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: active ? s.color : "#8888a0" }}>{s.label}</span>
-                  {alreadyBaked && (
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "rgba(52,211,153,0.15)", color: "#34d399" }}>BAKED</span>
-                  )}
+                  {baked && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "rgba(52,211,153,0.15)", color: "#34d399" }}>BAKED</span>}
                 </button>
               );
             })}
-
-            {/* Custom */}
             <button onClick={() => { setUseCustom(true); setResults([]); setStatus("idle"); }} style={{
-              padding: "12px 16px", borderRadius: 12, minWidth: 100,
+              padding: "10px 16px", borderRadius: 12, minWidth: 90,
               border: useCustom ? "2px solid #00d4aa" : "2px solid #1e1e2e",
               background: useCustom ? "rgba(0,212,170,0.1)" : "#12121a",
-              cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
             }}>
-              <div style={{ width: 44, height: 44, borderRadius: 22, background: "#00d4aa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                ✏️
-              </div>
+              <span style={{ fontSize: 24 }}>✏️</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: useCustom ? "#00d4aa" : "#8888a0" }}>Custom</span>
             </button>
           </div>
@@ -222,15 +213,11 @@ export default function App() {
           {useCustom && (
             <textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
               placeholder="Describe your style... e.g. underwater ocean theme, coral textures, bioluminescent colors"
-              style={{
-                width: "100%", padding: 12, borderRadius: 10, border: "1px solid #2a2a3a",
-                background: "#12121a", color: "#e4e4ef", fontSize: 13, fontFamily: "inherit",
-                resize: "vertical", minHeight: 60, outline: "none", marginBottom: 12,
-              }}
+              style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #2a2a3a", background: "#12121a", color: "#e4e4ef", fontSize: 13, fontFamily: "inherit", resize: "vertical", minHeight: 60, outline: "none", marginBottom: 12 }}
             />
           )}
 
-          {/* Strength + Bake button */}
+          {/* Controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
               <span style={{ fontSize: 12, color: "#6b6b80" }}>Subtle</span>
@@ -242,13 +229,11 @@ export default function App() {
             </div>
             <button onClick={bakeSkin} disabled={status === "running" || !activePrompt} style={{
               padding: "12px 32px", borderRadius: 10, border: "none",
-              background: status === "running" ? "#333" : isBaked ? "#34d399" : "#00d4aa",
-              color: status === "running" ? "#666" : "#0a0a0f",
-              fontSize: 15, fontWeight: 700,
-              cursor: status === "running" ? "not-allowed" : "pointer",
+              background: status === "running" ? "#333" : "#00d4aa", color: status === "running" ? "#666" : "#0a0a0f",
+              fontSize: 15, fontWeight: 700, cursor: status === "running" ? "not-allowed" : "pointer",
               boxShadow: status === "running" ? "none" : "0 4px 14px rgba(0,212,170,0.3)",
             }}>
-              {status === "running" ? "Baking..." : isBaked ? `View ${skin?.label} Skin` : `Bake ${char.name} Skin`}
+              {status === "running" ? "Baking..." : isBaked ? "View Baked Skin" : `Bake ${selectedCat}`}
             </button>
           </div>
         </div>
@@ -261,9 +246,7 @@ export default function App() {
             background: status === "running" ? "rgba(124,92,252,0.1)" : status === "done" ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)",
             color: status === "running" ? "#a78bfa" : status === "done" ? "#34d399" : "#f87171",
           }}>
-            {status === "running" && (
-              <div style={{ width: 16, height: 16, border: "2px solid transparent", borderTopColor: "currentColor", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-            )}
+            {status === "running" && <div style={{ width: 16, height: 16, border: "2px solid transparent", borderTopColor: "currentColor", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />}
             {statusMsg}
             {status === "done" && !useCustom && skin && (
               <a href={`${API}/api/skins/${skin.id}/download`}
@@ -274,24 +257,24 @@ export default function App() {
           </div>
         )}
 
-        {/* Results: before/after cards */}
+        {/* Before/After Results */}
         {results.length > 0 && (
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", color: "#7c5cfc", letterSpacing: 1, marginBottom: 14 }}>
-              {useCustom ? "Custom Skin" : skin?.label} — {char.name}
+              Before / After — {selectedCat}
               {results[0]?.cached && <span style={{ fontSize: 10, color: "#34d399", marginLeft: 8 }}>CACHED</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
               {results.map((r, i) => (
                 <div key={i} style={{ background: "#12121a", borderRadius: 12, border: "1px solid #1e1e2e", overflow: "hidden", animation: "fadeIn 0.4s" }}>
                   <div style={{ padding: "8px 12px", fontSize: 12, fontWeight: 600, borderBottom: "1px solid #1e1e2e", display: "flex", justifyContent: "space-between" }}>
-                    <span>{r.character} / {r.texture}</span>
+                    <span>{r.texture}</span>
                     <span style={{ color: "#6b6b80", fontWeight: 400 }}>{r.width}x{r.height}</span>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
                     <div style={{ position: "relative" }}>
                       <div style={{ position: "absolute", top: 6, left: 6, padding: "2px 8px", background: "rgba(0,0,0,0.75)", borderRadius: 4, fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>Before</div>
-                      <img src={`data:image/png;base64,${r.original}`} style={{ width: "100%", display: "block" }} />
+                      {r.original && <img src={`data:image/png;base64,${r.original}`} style={{ width: "100%", display: "block" }} />}
                     </div>
                     <div style={{ position: "relative" }}>
                       <div style={{ position: "absolute", top: 6, left: 6, padding: "2px 8px", background: "rgba(0,0,0,0.75)", borderRadius: 4, fontSize: 10, fontWeight: 600, textTransform: "uppercase", color: "#00d4aa" }}>After</div>
@@ -304,30 +287,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Preloaded textures when idle */}
-        {results.length === 0 && status === "idle" && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", color: "#6b6b80", letterSpacing: 1, marginBottom: 14 }}>
-              {char.name}'s Unity textures
-              {isBaked && <span style={{ color: "#34d399", marginLeft: 8 }}>— {skin.label} skin available! Click Bake to view</span>}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-              {TEXTURES.map(tex => (
-                <div key={tex} style={{ background: "#12121a", borderRadius: 12, border: "1px solid #1e1e2e", overflow: "hidden" }}>
-                  <div style={{ padding: "6px 10px", fontSize: 11, fontWeight: 600, borderBottom: "1px solid #1e1e2e", color: "#8888a0" }}>{tex}</div>
-                  <img src={`${API}/api/demo/thumb/${char.name}/${tex}`}
-                    style={{ width: "100%", display: "block", aspectRatio: "1", objectFit: "cover" }}
-                    onError={(e) => { e.target.style.background = "#1a1a26"; }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Footer */}
         <div style={{ marginTop: 48, paddingTop: 20, borderTop: "1px solid #1e1e2e", textAlign: "center" }}>
-          <span style={{ fontSize: 11, color: "#6b6b80" }}>Unity Reskin Pipeline — Skins generated once by Lucy, saved as permanent Unity assets</span>
+          <div style={{ fontSize: 11, color: "#6b6b80" }}>
+            Unity Reskin Pipeline — Real Unity assets from Trash Dash (Unity Companion License)
+          </div>
+          <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>
+            Skins generated once by Lucy AI, saved as permanent Unity-ready assets
+          </div>
         </div>
       </div>
 
