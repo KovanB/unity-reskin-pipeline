@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trash Dash</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+    #unity-container { width: 100%; height: 100%; }
+    #unity-canvas { width: 100%; height: 100%; background: #111; }
+    #unity-loading-bar {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 200px; text-align: center;
+    }
+    #unity-progress-bar-empty { width: 100%; height: 4px; background: #333; border-radius: 2px; }
+    #unity-progress-bar-full { width: 0%; height: 100%; background: #00d4aa; border-radius: 2px; transition: width 0.3s; }
+    #unity-loading-text { color: #666; font-family: sans-serif; font-size: 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-loading-bar">
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div id="unity-loading-text">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    var unityInstance = null;
+
+    // ── Unity WebGL Loader ──────────────────────────────────────────────
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/TrashDash.loader.js";
+    var config = {
+      dataUrl: buildUrl + "/TrashDash.data.gz",
+      frameworkUrl: buildUrl + "/TrashDash.framework.js.gz",
+      codeUrl: buildUrl + "/TrashDash.wasm.gz",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "Unity Technologies",
+      productName: "Trash Dash",
+      productVersion: "1.0",
+    };
+
+    var loadingBar = document.querySelector("#unity-loading-bar");
+    var progressBar = document.querySelector("#unity-progress-bar-full");
+    var loadingText = document.querySelector("#unity-loading-text");
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = function () {
+      createUnityInstance(document.querySelector("#unity-canvas"), config, function (progress) {
+        progressBar.style.width = (100 * progress) + "%";
+        loadingText.textContent = "Loading... " + Math.round(100 * progress) + "%";
+      }).then(function (instance) {
+        unityInstance = instance;
+        loadingBar.style.display = "none";
+        // Notify parent that Unity is loaded (in case SkinLoader.cs takes a moment)
+        window.parent.postMessage({ source: 'unity-loader', payload: { type: 'loaded' } }, '*');
+      }).catch(function (message) {
+        loadingText.textContent = "Error: " + message;
+        console.error(message);
+      });
+    };
+    document.body.appendChild(script);
+
+    // ── PostMessage Bridge: React → Unity ─────────────────────────────
+    // The parent React app sends messages here. We route them to Unity's SendMessage.
+    window.addEventListener("message", function (event) {
+      if (!event.data || event.data.source !== 'react') return;
+      if (!unityInstance) return;
+
+      var msg = event.data.payload;
+      // Expected format: { gameObject: "TextureSwapper", method: "ApplyTexture", data: "..." }
+      if (msg.gameObject && msg.method) {
+        unityInstance.SendMessage(msg.gameObject, msg.method, msg.data || "");
+      }
+    });
+
+    // ── Focus management ──────────────────────────────────────────────
+    // Ensure Unity canvas gets focus for input
+    document.querySelector("#unity-canvas").addEventListener("click", function () {
+      document.querySelector("#unity-canvas").focus();
+    });
+  </script>
+</body>
+</html>

@@ -333,6 +333,162 @@ async def api_bake_skin(
     return StreamingResponse(bake(), media_type="application/x-ndjson")
 
 
+# ──────────────────────────── Single-texture bake (for customize panel) ───────
+
+@app.post("/api/bake-single")
+async def api_bake_single(
+    element: str = "Graffiti01",
+    style_prompt: str = "Dracula gothic horror",
+    strength: float = 0.80,
+):
+    """
+    Generate ONE reskinned texture via Lucy. Returns streaming NDJSON with
+    a single before/after card. Does NOT persist — user must call /api/approve.
+    """
+    import base64, io
+
+    async def generate_single():
+        demo_dir = _get_demo_dir()
+
+        # Find the original texture file
+        tex_path = None
+        for cat_id, cat_info in DEMO_CATEGORIES.items():
+            cat_dir = demo_dir / "Assets" / cat_info["path"]
+            candidate = cat_dir / f"{element}.png"
+            if candidate.exists():
+                tex_path = candidate
+                break
+
+        if not tex_path:
+            yield json.dumps({"type": "status", "message": f"Element '{element}' not found", "cls": "error"}) + "\n"
+            return
+
+        api_key = os.environ.get("LUCY_API_KEY", "")
+        if not api_key:
+            yield json.dumps({"type": "status", "message": "LUCY_API_KEY not set", "cls": "error"}) + "\n"
+            return
+
+        yield json.dumps({"type": "status", "message": f"Generating {element}..."}) + "\n"
+
+        try:
+            import yaml
+            config_data = {
+                "name": "single_bake",
+                "style_prompt": style_prompt,
+                "backend": "lucy",
+                "unity_project_path": str(demo_dir),
+                "output_dir": str(DATA_ROOT / "tmp_single"),
+                "categories": ["characters"],
+                "quality": {"strength": strength, "guidance_scale": 7.5, "steps": 30,
+                            "preserve_pbr": True, "tile_seam_fix": True, "consistency_pass": False},
+                "api_key": api_key,
+            }
+            config_path = DATA_ROOT / "tmp_single" / "config.yaml"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_path, "w") as f:
+                yaml.dump(config_data, f)
+
+            from unity_reskin.config import load_config
+            from unity_reskin.generator import get_backend
+            from unity_reskin.utils import load_image
+
+            config = load_config(config_path)
+            gen_backend = get_backend(config)
+
+            source = load_image(tex_path)
+            asset_info = {"relative_path": str(tex_path.relative_to(demo_dir / "Assets")), "category": "single"}
+            result = await asyncio.to_thread(gen_backend.generate, source, style_prompt, [], asset_info)
+
+            def to_b64(img):
+                buf = io.BytesIO()
+                img.convert("RGB").save(buf, format="PNG")
+                return base64.b64encode(buf.getvalue()).decode()
+
+            yield json.dumps({
+                "type": "card",
+                "element": element,
+                "width": source.width, "height": source.height,
+                "original": to_b64(source),
+                "reskinned": to_b64(result),
+            }) + "\n"
+
+            yield json.dumps({"type": "done", "message": f"{element} generated!"}) + "\n"
+
+        except Exception as e:
+            yield json.dumps({"type": "status", "message": f"Error: {e}", "cls": "error"}) + "\n"
+
+    return StreamingResponse(generate_single(), media_type="application/x-ndjson")
+
+
+@app.post("/api/approve")
+async def api_approve(
+    skin_id: str = "custom",
+    element: str = "Graffiti01",
+    category: str = "Graffiti",
+    base64_png: str = "",
+):
+    """
+    Persist an approved texture. Pass base64_png as query param or JSON body.
+    Saves to DATA_ROOT/skins/{skin_id}/{category}/{element}.png
+    """
+    import base64
+
+    if not base64_png:
+        return {"error": "base64_png is required"}
+
+    skins_dir = DATA_ROOT / "skins" / skin_id / category
+    skins_dir.mkdir(parents=True, exist_ok=True)
+
+    png_bytes = base64.b64decode(base64_png)
+    out_path = skins_dir / f"{element}.png"
+    with open(out_path, "wb") as f:
+        f.write(png_bytes)
+
+    # Update manifest
+    from unity_reskin.utils import save_json, load_json
+    manifest_path = DATA_ROOT / "skins" / skin_id / "manifest.json"
+    if manifest_path.exists():
+        manifest = load_json(manifest_path)
+    else:
+        manifest = {"skin_id": skin_id, "textures": {}}
+
+    if category not in manifest["textures"]:
+        manifest["textures"][category] = []
+    if element not in manifest["textures"][category]:
+        manifest["textures"][category].append(element)
+    save_json(manifest, manifest_path)
+
+    return {"status": "saved", "path": str(out_path)}
+
+
+@app.get("/api/skins/active")
+async def api_active_skins(skin_id: str = "custom"):
+    """
+    Return all saved skin textures as base64 for Unity startup loading.
+    Returns a JSON object mapping elementId -> base64Png.
+    """
+    import base64
+
+    skins_dir = DATA_ROOT / "skins" / skin_id
+    manifest_path = skins_dir / "manifest.json"
+
+    if not manifest_path.exists():
+        return {"skin_id": skin_id, "textures": {}}
+
+    from unity_reskin.utils import load_json
+    manifest = load_json(manifest_path)
+
+    textures = {}
+    for category, elements in manifest.get("textures", {}).items():
+        for elem in elements:
+            tex_path = skins_dir / category / f"{elem}.png"
+            if tex_path.exists():
+                with open(tex_path, "rb") as f:
+                    textures[elem] = base64.b64encode(f.read()).decode()
+
+    return {"skin_id": skin_id, "textures": textures}
+
+
 # ──────────────────────────── Job endpoints (advanced mode) ──────────────────
 
 @app.post("/api/jobs")

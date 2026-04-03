@@ -6,6 +6,11 @@
   padding: 0;
 }
 
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 :root {
   --bg: #0a0a0f;
   --bg-card: #12121a;

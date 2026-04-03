@@ -4,7 +4,22 @@
   "framework": null,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/((?!api).*)", "destination": "/web/frontend/dist/$1" }
+    { "source": "/((?!api|unity).*)", "destination": "/web/frontend/dist/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/unity/Build/(.*)\\.gz",
+      "headers": [
+        { "key": "Content-Encoding", "value": "gzip" }
+      ]
+    },
+    {
+      "source": "/unity/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    }
   ],
   "functions": {
     "api/index.py": {
