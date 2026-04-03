@@ -376,6 +376,211 @@ async def api_list_assets(job_id: str) -> dict:
     return {"assets": result, "total": len(result)}
 
 
+@app.get("/api/demo/thumb/{character}/{texture}")
+async def api_demo_thumb(character: str, texture: str):
+    """Serve a demo character texture as a thumbnail."""
+    demo_dir = _ensure_demo_project()
+    file_path = demo_dir / "Assets" / "Characters" / character / f"{character}_{texture}.png"
+    if not file_path.exists():
+        raise HTTPException(404, "Texture not found")
+    return FileResponse(file_path, media_type="image/png")
+
+
+@app.get("/api/skins")
+async def api_list_skins():
+    """List all permanently baked skins with their textures."""
+    skins_dir = DATA_ROOT / "skins"
+    if not skins_dir.exists():
+        return {"skins": []}
+
+    skins = []
+    for skin_dir in sorted(skins_dir.iterdir()):
+        if not skin_dir.is_dir():
+            continue
+        manifest_path = skin_dir / "manifest.json"
+        if manifest_path.exists():
+            from unity_reskin.utils import load_json
+            manifest = load_json(manifest_path)
+            # Build texture URLs
+            textures = {}
+            for char_name, char_texs in manifest.get("textures", {}).items():
+                textures[char_name] = {}
+                for tex_name in char_texs:
+                    textures[char_name][tex_name] = f"/api/skins/{skin_dir.name}/{char_name}/{tex_name}"
+            manifest["textures"] = textures
+            skins.append(manifest)
+
+    return {"skins": skins}
+
+
+@app.get("/api/skins/{skin_id}/{character}/{texture}")
+async def api_skin_texture(skin_id: str, character: str, texture: str):
+    """Serve a permanently baked skin texture."""
+    file_path = DATA_ROOT / "skins" / skin_id / character / f"{texture}.png"
+    if not file_path.exists():
+        raise HTTPException(404, "Skin texture not found")
+    return FileResponse(file_path, media_type="image/png")
+
+
+@app.get("/api/skins/{skin_id}/download")
+async def api_skin_download(skin_id: str):
+    """Download a baked skin as a zip of Unity-ready textures."""
+    skin_dir = DATA_ROOT / "skins" / skin_id
+    if not skin_dir.exists():
+        raise HTTPException(404, "Skin not found")
+
+    zip_path = DATA_ROOT / "skins" / f"{skin_id}"
+    if not Path(f"{zip_path}.zip").exists():
+        shutil.make_archive(str(zip_path), "zip", skin_dir)
+
+    return FileResponse(f"{zip_path}.zip", media_type="application/zip", filename=f"{skin_id}.zip")
+
+
+@app.post("/api/bake-skin")
+async def api_bake_skin(
+    skin_id: str = "dracula",
+    style_prompt: str = "Dracula gothic horror",
+    strength: float = 0.80,
+    characters: str = "",
+):
+    """
+    Permanently bake a skin: run Lucy ONCE, save results as permanent assets.
+    Returns streaming progress, then the skin is available at /api/skins/{skin_id}.
+    If the skin already exists, returns it immediately (cached).
+    """
+    import base64, io
+
+    skins_dir = DATA_ROOT / "skins" / skin_id
+    manifest_path = skins_dir / "manifest.json"
+
+    # If already baked, return cached result
+    if manifest_path.exists():
+        from unity_reskin.utils import load_json
+        manifest = load_json(manifest_path)
+
+        async def cached():
+            yield json.dumps({"type": "status", "message": f"Skin '{skin_id}' already baked — serving cached"}) + "\n"
+
+            for char_name, char_texs in manifest.get("textures", {}).items():
+                for tex_name in char_texs:
+                    tex_path = skins_dir / char_name / f"{tex_name}.png"
+                    orig_path = DATA_ROOT / "demo_project" / "Assets" / "Characters" / char_name / f"{char_name}_{tex_name}.png"
+                    if tex_path.exists():
+                        def to_b64(p):
+                            with open(p, "rb") as f:
+                                return base64.b64encode(f.read()).decode()
+                        yield json.dumps({
+                            "type": "card", "character": char_name, "texture": tex_name,
+                            "original": to_b64(orig_path) if orig_path.exists() else "",
+                            "reskinned": to_b64(tex_path),
+                            "width": 512, "height": 512, "cached": True,
+                        }) + "\n"
+
+            yield json.dumps({"type": "done", "message": f"Skin '{skin_id}' ready!", "skin_id": skin_id}) + "\n"
+
+        return StreamingResponse(cached(), media_type="application/x-ndjson")
+
+    # Otherwise, generate and permanently save
+    char_list = [c.strip() for c in characters.split(",")] if characters else [c["name"] for c in [
+        {"name": "Jake"}, {"name": "Tricky"}, {"name": "Fresh"}, {"name": "Yutani"}, {"name": "Spike"}
+    ]]
+    textures_list = ["Body", "Face", "Shoes", "Board", "Hat"]
+
+    async def bake():
+        import yaml
+        demo_dir = _ensure_demo_project()
+
+        api_key = os.environ.get("LUCY_API_KEY", "")
+        if not api_key:
+            yield json.dumps({"type": "status", "message": "LUCY_API_KEY not set", "cls": "error"}) + "\n"
+            return
+
+        config_data = {
+            "name": skin_id,
+            "style_prompt": style_prompt,
+            "backend": "lucy",
+            "unity_project_path": str(demo_dir),
+            "output_dir": str(DATA_ROOT / "tmp_bake"),
+            "categories": ["characters"],
+            "quality": {"strength": strength, "guidance_scale": 7.5, "steps": 30,
+                        "preserve_pbr": True, "tile_seam_fix": True, "consistency_pass": False},
+        }
+        config_data["api_key"] = api_key
+
+        config_path = DATA_ROOT / "tmp_bake" / "config.yaml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w") as f:
+            yaml.dump(config_data, f)
+
+        from unity_reskin.config import load_config
+        from unity_reskin.generator import get_backend
+        from unity_reskin.utils import load_image, save_image
+
+        config = load_config(config_path)
+        gen_backend = get_backend(config)
+
+        total = len(char_list) * len(textures_list)
+        done = 0
+        skin_textures = {}
+
+        yield json.dumps({"type": "status", "message": f"Baking skin '{skin_id}' — {total} textures with Lucy..."}) + "\n"
+
+        for char_name in char_list:
+            char_dir = demo_dir / "Assets" / "Characters" / char_name
+            if not char_dir.exists():
+                continue
+
+            skin_textures[char_name] = []
+            out_char_dir = skins_dir / char_name
+            out_char_dir.mkdir(parents=True, exist_ok=True)
+
+            for tex_name in textures_list:
+                tex_path = char_dir / f"{char_name}_{tex_name}.png"
+                if not tex_path.exists():
+                    continue
+
+                done += 1
+                yield json.dumps({"type": "status", "message": f"({done}/{total}) {char_name} / {tex_name}..."}) + "\n"
+
+                try:
+                    source = load_image(tex_path)
+                    asset_info = {"relative_path": f"Characters/{char_name}/{char_name}_{tex_name}.png", "category": "characters"}
+                    result = await asyncio.to_thread(gen_backend.generate, source, style_prompt, [], asset_info)
+
+                    # Save permanently
+                    out_path = out_char_dir / f"{tex_name}.png"
+                    save_image(result, out_path)
+                    skin_textures[char_name].append(tex_name)
+
+                    def to_b64(img):
+                        buf = io.BytesIO()
+                        img.convert("RGB").save(buf, format="PNG")
+                        return base64.b64encode(buf.getvalue()).decode()
+
+                    yield json.dumps({
+                        "type": "card", "character": char_name, "texture": tex_name,
+                        "width": source.width, "height": source.height,
+                        "original": to_b64(source), "reskinned": to_b64(result),
+                    }) + "\n"
+
+                except Exception as e:
+                    yield json.dumps({"type": "status", "message": f"Error on {tex_name}: {e}", "cls": "error"}) + "\n"
+
+        # Write permanent manifest
+        from unity_reskin.utils import save_json
+        save_json({
+            "skin_id": skin_id,
+            "style_prompt": style_prompt,
+            "strength": strength,
+            "textures": skin_textures,
+            "total": done,
+        }, manifest_path)
+
+        yield json.dumps({"type": "done", "message": f"Skin '{skin_id}' permanently baked! {done} textures saved.", "skin_id": skin_id}) + "\n"
+
+    return StreamingResponse(bake(), media_type="application/x-ndjson")
+
+
 @app.get("/api/reskin")
 async def api_reskin(
     character: str = "Jake",
