@@ -8,11 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 from PIL import Image, ImageFilter
 
 from .config import SkinConfig
 from .utils import load_image, load_json, logger, save_image, save_json
+
+
+def _np():
+    import numpy
+    return numpy
 
 
 def resize_to_match(generated: Image.Image, target_w: int, target_h: int) -> Image.Image:
@@ -25,26 +29,26 @@ def resize_to_match(generated: Image.Image, target_w: int, target_h: int) -> Ima
 def generate_normal_from_albedo(albedo: Image.Image) -> Image.Image:
     """Generate a normal map from albedo using Sobel-like edge detection."""
     gray = albedo.convert("L")
-    arr = np.array(gray, dtype=np.float32) / 255.0
+    arr = _np().array(gray, dtype=_np().float32) / 255.0
 
-    dx = np.zeros_like(arr)
-    dy = np.zeros_like(arr)
+    dx = _np().zeros_like(arr)
+    dy = _np().zeros_like(arr)
     dx[:, 1:-1] = (arr[:, 2:] - arr[:, :-2]) / 2.0
     dy[1:-1, :] = (arr[2:, :] - arr[:-2, :]) / 2.0
 
     strength = 2.0
     nx = -dx * strength
     ny = -dy * strength
-    nz = np.ones_like(arr)
+    nz = _np().ones_like(arr)
 
-    length = np.sqrt(nx**2 + ny**2 + nz**2)
+    length = _np().sqrt(nx**2 + ny**2 + nz**2)
     nx /= length
     ny /= length
     nz /= length
 
-    r = ((nx + 1) / 2 * 255).clip(0, 255).astype(np.uint8)
-    g = ((ny + 1) / 2 * 255).clip(0, 255).astype(np.uint8)
-    b = ((nz + 1) / 2 * 255).clip(0, 255).astype(np.uint8)
+    r = ((nx + 1) / 2 * 255).clip(0, 255).astype(_np().uint8)
+    g = ((ny + 1) / 2 * 255).clip(0, 255).astype(_np().uint8)
+    b = ((nz + 1) / 2 * 255).clip(0, 255).astype(_np().uint8)
 
     return Image.merge("RGB", [
         Image.fromarray(r), Image.fromarray(g), Image.fromarray(b),
@@ -54,15 +58,15 @@ def generate_normal_from_albedo(albedo: Image.Image) -> Image.Image:
 def generate_roughness_from_albedo(albedo: Image.Image) -> Image.Image:
     """Estimate a roughness map from albedo."""
     gray = albedo.convert("L")
-    arr = np.array(gray, dtype=np.float32) / 255.0
+    arr = _np().array(gray, dtype=_np().float32) / 255.0
     roughness = 1.0 - arr * 0.5
-    roughness = (roughness * 255).clip(0, 255).astype(np.uint8)
+    roughness = (roughness * 255).clip(0, 255).astype(_np().uint8)
     return Image.fromarray(roughness, mode="L").convert("RGBA")
 
 
 def fix_tile_seams(img: Image.Image, border_px: int = 16) -> Image.Image:
     """Blend tile borders to reduce visible seams when tiling."""
-    arr = np.array(img, dtype=np.float32)
+    arr = _np().array(img, dtype=_np().float32)
     h, w = arr.shape[:2]
 
     if border_px >= min(h, w) // 4:
@@ -82,7 +86,7 @@ def fix_tile_seams(img: Image.Image, border_px: int = 16) -> Image.Image:
         arr[i] = top_row * alpha + bottom_row * (1 - alpha)
         arr[h - border_px + i] = top_row * (1 - alpha) + bottom_row * alpha
 
-    return Image.fromarray(arr.clip(0, 255).astype(np.uint8), mode=img.mode)
+    return Image.fromarray(arr.clip(0, 255).astype(_np().uint8), mode=img.mode)
 
 
 def is_tiling_texture(asset_info: dict) -> bool:

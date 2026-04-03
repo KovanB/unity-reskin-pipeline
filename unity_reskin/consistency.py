@@ -8,31 +8,35 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 
 from .config import SkinConfig
 from .utils import load_image, load_json, logger, save_image, save_json
 
 
-def extract_palette(img: Image.Image, n_colors: int = 8) -> np.ndarray:
+def _np():
+    import numpy
+    return numpy
+
+
+def extract_palette(img: Image.Image, n_colors: int = 8):
     """Extract dominant colors using quantization."""
     small = img.convert("RGB").resize((64, 64), Image.LANCZOS)
     quantized = small.quantize(colors=n_colors, method=Image.Quantize.MEDIANCUT)
     palette = quantized.getpalette()[:n_colors * 3]
-    return np.array(palette, dtype=np.float32).reshape(-1, 3)
+    return _np().array(palette, dtype=_np().float32).reshape(-1, 3)
 
 
 def compute_target_palette(style_refs, generated_images, n_colors=8):
     sources = style_refs if style_refs else generated_images
     if not sources:
-        return np.array([[128, 128, 128]] * n_colors, dtype=np.float32)
+        return _np().array([[128, 128, 128]] * n_colors, dtype=_np().float32)
     all_palettes = [extract_palette(img, n_colors) for img in sources]
-    return np.mean(all_palettes, axis=0)
+    return _np().mean(all_palettes, axis=0)
 
 
 def shift_palette(img, current_palette, target_palette, strength=0.3):
-    arr = np.array(img.convert("RGB"), dtype=np.float32)
+    arr = _np().array(img.convert("RGB"), dtype=_np().float32)
     for c in range(3):
         channel = arr[:, :, c]
         src_mean = channel.mean()
@@ -42,7 +46,7 @@ def shift_palette(img, current_palette, target_palette, strength=0.3):
         shifted = (channel - src_mean) * (tgt_std / src_std) + tgt_mean
         arr[:, :, c] = channel * (1 - strength) + shifted * strength
 
-    arr = arr.clip(0, 255).astype(np.uint8)
+    arr = arr.clip(0, 255).astype(_np().uint8)
     result = Image.fromarray(arr, mode="RGB")
     if img.mode == "RGBA":
         result = result.convert("RGBA")
