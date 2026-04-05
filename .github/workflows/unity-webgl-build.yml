@@ -68,11 +68,10 @@ jobs:
       - name: Inject postMessage bridge into index.html
         run: |
           BUILD_DIR="builds/WebGL/TrashDash"
-          # Write bridge.js as a separate file
+          sudo chmod -R a+rw "$BUILD_DIR"
           echo 'var _ub=null;window.addEventListener("message",function(e){if(e.data&&e.data.source==="react"&&_ub){var p=e.data.payload;if(p.gameObject&&p.method)_ub.SendMessage(p.gameObject,p.method,p.data||"")}});' > "$BUILD_DIR/bridge.js"
-          # Append a script tag referencing it at the end of index.html
           echo '<script src="bridge.js"></script>' >> "$BUILD_DIR/index.html"
-          echo "Bridge file created and script tag appended"
+          echo "Bridge injected"
 
       - name: Upload WebGL build artifact
         uses: actions/upload-artifact@v4
@@ -83,6 +82,7 @@ jobs:
 
       - name: Push build to webgl-build branch
         run: |
+          sudo chmod -R a+rw builds/
           cd builds/WebGL/TrashDash
           git init
           git config user.name "GitHub Actions"
