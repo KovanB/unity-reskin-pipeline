@@ -8,24 +8,23 @@
   ],
   "headers": [
     {
-      "source": "/unity/Build/(.*)\\.wasm\\.gz",
+      "source": "/unity/Build/TrashDash.wasm",
       "headers": [
         { "key": "Content-Encoding", "value": "gzip" },
         { "key": "Content-Type", "value": "application/wasm" }
       ]
     },
     {
-      "source": "/unity/Build/(.*)\\.js\\.gz",
+      "source": "/unity/Build/TrashDash.framework.js",
       "headers": [
         { "key": "Content-Encoding", "value": "gzip" },
         { "key": "Content-Type", "value": "application/javascript" }
       ]
     },
     {
-      "source": "/unity/Build/(.*)\\.data\\.gz",
+      "source": "/unity/Build/TrashDash.data",
       "headers": [
-        { "key": "Content-Encoding", "value": "gzip" },
-        { "key": "Content-Type", "value": "application/octet-stream" }
+        { "key": "Content-Encoding", "value": "gzip" }
       ]
     }
   ],
