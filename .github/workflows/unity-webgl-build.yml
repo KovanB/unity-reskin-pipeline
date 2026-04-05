@@ -29,6 +29,8 @@ jobs:
           mkdir -p /tmp/trash-dash/Assets/Plugins/WebGL/
           cp templates/unity-scripts/Plugins/WebGL/WebGLBridge.jslib /tmp/trash-dash/Assets/Plugins/WebGL/
           cd /tmp/trash-dash
+          git config user.name "CI"
+          git config user.email "ci@build"
           git add -A
           git commit -m "Add reskin scripts" --allow-empty
 
