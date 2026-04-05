@@ -1,57 +1,125 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Trash Dash</title>
-  <style>
-    * { margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'Inter', sans-serif; }
-    .container {
-      width: 100%; height: 100%; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 16px; color: #e4e4ef;
-    }
-    .emoji { font-size: 64px; animation: float 3s ease-in-out infinite; }
-    .title { font-size: 24px; font-weight: 700; }
-    .sub { font-size: 13px; color: #6b6b80; text-align: center; max-width: 320px; line-height: 1.6; }
-    code { color: #7c5cfc; background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-    .steps { text-align: left; font-size: 12px; color: #8888a0; line-height: 2; margin-top: 8px; }
-    .steps li { margin-left: 16px; }
-    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="emoji">🎮</div>
-    <div class="title">Trash Dash</div>
-    <div class="sub">
-      Unity WebGL build goes here. Once built, your game will be playable right in this frame.
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity WebGL Player | Trash Dash</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">Trash Dash</div>
+      </div>
     </div>
-    <div class="steps">
-      <ol>
-        <li>Copy scripts from <code>templates/unity-scripts/</code> into your Unity project</li>
-        <li>Open Unity → File → Build Settings → WebGL → Build</li>
-        <li>Copy the <code>Build/</code> folder to <code>web/frontend/public/unity/</code></li>
-        <li>Redeploy — the game plays live with customization!</li>
-      </ol>
-    </div>
-    <div class="sub" style="margin-top: 12px; font-size: 11px; color: #444;">
-      The Customize panel works independently — try it now!
-    </div>
-  </div>
+    <script>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
 
-  <script>
-    // PostMessage bridge — same as the real Unity template
-    // React → this iframe → (would go to Unity if it were loaded)
-    window.addEventListener("message", function (event) {
-      if (!event.data || event.data.source !== 'react') return;
-      console.log('[Unity Placeholder] Received:', event.data.payload);
-    });
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
 
-    // Simulate Unity ready after a moment (so the Customize panel works)
-    setTimeout(function() {
-      window.parent.postMessage({ source: 'unity', payload: { type: 'ready' } }, '*');
-    }, 1000);
-  </script>
-</body>
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/TrashDash.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/TrashDash.data.gz",
+        frameworkUrl: buildUrl + "/TrashDash.framework.js.gz",
+        codeUrl: buildUrl + "/TrashDash.wasm.gz",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Unity",
+        productName: "Trash Dash",
+        productVersion: "1.0",
+        showBanner: unityShowBanner,
+      };
+
+      // By default Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        container.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+
+        unityShowBanner('WebGL builds are not supported on mobile devices.');
+      } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+
+        canvas.style.width = "960px";
+        canvas.style.height = "600px";
+      }
+
+      loadingBar.style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+          fullscreenButton.onclick = () => {
+            unityInstance.SetFullscreen(1);
+          };
+          // Expose to postMessage bridge
+          window._ub = unityInstance;
+          window.parent.postMessage({source:"unity-loader",payload:{type:"loaded"}},"*");
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+    <script src="bridge.js"></script>
+  </body>
 </html>

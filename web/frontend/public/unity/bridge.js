@@ -1,0 +1,1 @@
+window.addEventListener("message",function(e){if(e.data&&e.data.source==="react"&&window._ub){var p=e.data.payload;if(p.gameObject&&p.method)window._ub.SendMessage(p.gameObject,p.method,p.data||"")}});
