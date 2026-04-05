@@ -68,9 +68,30 @@ window.addEventListener("message",function(e){if(e.data&&e.data.source==="react"
     }
   });
 
-  // Auto-focus canvas so keyboard works immediately
+  // Auto-focus canvas and auto-tap to dismiss splash/promo screens
   window.addEventListener("load", function(){
     setTimeout(function(){ if(canvas) canvas.focus(); }, 1000);
+
+    // Auto-tap the canvas several times after Unity loads to click through
+    // the "tap to download full Unity project" splash screen and any prompts.
+    // Unity UI buttons respond to mousedown+mouseup at the click position.
+    function autoTap(delay){
+      setTimeout(function(){
+        if(!canvas) return;
+        var rect = canvas.getBoundingClientRect();
+        // Click center of canvas (where main buttons typically are)
+        var cx = rect.left + rect.width/2;
+        var cy = rect.top + rect.height/2;
+        canvas.dispatchEvent(new MouseEvent("mousedown", {clientX:cx, clientY:cy, bubbles:true, button:0}));
+        canvas.dispatchEvent(new MouseEvent("mouseup", {clientX:cx, clientY:cy, bubbles:true, button:0}));
+        canvas.dispatchEvent(new MouseEvent("click", {clientX:cx, clientY:cy, bubbles:true, button:0}));
+      }, delay);
+    }
+    // Tap at 3s, 5s, 7s, 9s to click through any splash/promo/tutorial screens
+    autoTap(3000);
+    autoTap(5000);
+    autoTap(7000);
+    autoTap(9000);
   });
 })();
 
