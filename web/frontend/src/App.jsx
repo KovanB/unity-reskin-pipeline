@@ -53,6 +53,15 @@ export default function App() {
         <div style={{ flex: 1 }} />
         {demoInfo && <span style={{ fontSize: 11, color: "#6b6b80" }}>{demoInfo.total_textures} textures from Trash Dash</span>}
         {isReady && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "rgba(52,211,153,0.15)", color: "#34d399", marginLeft: 10 }}>Game Connected</span>}
+        {!isCustomizing && (
+          <button onClick={openCustomize} style={{
+            marginLeft: 12, padding: "6px 16px", borderRadius: 8, border: "none",
+            background: "#7c5cfc", color: "#fff", fontSize: 12, fontWeight: 600,
+            cursor: "pointer",
+          }}>
+            Customize
+          </button>
+        )}
       </div>
 
       {/* Main layout */}

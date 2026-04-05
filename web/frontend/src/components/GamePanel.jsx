@@ -75,21 +75,6 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
         </div>
       )}
 
-      {/* Customize button */}
-      {!isCustomizing && (
-        <button onClick={onCustomize} style={{
-          position: "absolute", bottom: 20, right: 20, zIndex: 10,
-          padding: "12px 24px", borderRadius: 12, border: "none",
-          background: "rgba(0, 212, 170, 0.9)", color: "#0a0a0f",
-          fontSize: 14, fontWeight: 700, cursor: "pointer",
-          backdropFilter: "blur(8px)",
-          boxShadow: "0 4px 20px rgba(0,212,170,0.4)",
-          transition: "all 0.2s",
-        }}>
-          Customize
-        </button>
-      )}
-
       <style>{`
         @keyframes loadPulse {
           0%, 100% { opacity: 0.5; width: 30%; }
