@@ -68,32 +68,11 @@ jobs:
       - name: Inject postMessage bridge into index.html
         run: |
           BUILD_DIR="builds/WebGL/TrashDash"
-          # Add postMessage bridge script to Unity's generated index.html
-          # This injects a listener right before </body>
-          BRIDGE_SCRIPT='<script>
-          /* postMessage bridge: React parent <-> Unity */
-          var _unityInstance = null;
-          /* Override createUnityInstance to capture the instance */
-          var _origCreate = window.createUnityInstance;
-          if (typeof createUnityInstance !== "undefined") {
-            var _origFn = createUnityInstance;
-            createUnityInstance = function(canvas, config, onProgress) {
-              return _origFn(canvas, config, onProgress).then(function(instance) {
-                _unityInstance = instance;
-                window.parent.postMessage({source:"unity-loader",payload:{type:"loaded"}},"*");
-                return instance;
-              });
-            };
-          }
-          window.addEventListener("message", function(e) {
-            if (!e.data || e.data.source !== "react" || !_unityInstance) return;
-            var p = e.data.payload;
-            if (p.gameObject && p.method) _unityInstance.SendMessage(p.gameObject, p.method, p.data || "");
-          });
-          </script>'
-          # Inject before </body>
-          sed -i "s|</body>|${BRIDGE_SCRIPT}</body>|" "$BUILD_DIR/index.html"
-          echo "Bridge injected into index.html"
+          # Write bridge.js as a separate file
+          echo 'var _ub=null;window.addEventListener("message",function(e){if(e.data&&e.data.source==="react"&&_ub){var p=e.data.payload;if(p.gameObject&&p.method)_ub.SendMessage(p.gameObject,p.method,p.data||"")}});' > "$BUILD_DIR/bridge.js"
+          # Append a script tag referencing it at the end of index.html
+          echo '<script src="bridge.js"></script>' >> "$BUILD_DIR/index.html"
+          echo "Bridge file created and script tag appended"
 
       - name: Upload WebGL build artifact
         uses: actions/upload-artifact@v4
