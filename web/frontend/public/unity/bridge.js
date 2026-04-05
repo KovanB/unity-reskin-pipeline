@@ -68,31 +68,28 @@ window.addEventListener("message",function(e){if(e.data&&e.data.source==="react"
     }
   });
 
-  // Auto-focus canvas and auto-tap to dismiss splash/promo screens
+  // Auto-focus canvas
   window.addEventListener("load", function(){
     setTimeout(function(){ if(canvas) canvas.focus(); }, 1000);
-
-    // Auto-tap the canvas several times after Unity loads to click through
-    // the "tap to download full Unity project" splash screen and any prompts.
-    // Unity UI buttons respond to mousedown+mouseup at the click position.
-    function autoTap(delay){
-      setTimeout(function(){
-        if(!canvas) return;
-        var rect = canvas.getBoundingClientRect();
-        // Click center of canvas (where main buttons typically are)
-        var cx = rect.left + rect.width/2;
-        var cy = rect.top + rect.height/2;
-        canvas.dispatchEvent(new MouseEvent("mousedown", {clientX:cx, clientY:cy, bubbles:true, button:0}));
-        canvas.dispatchEvent(new MouseEvent("mouseup", {clientX:cx, clientY:cy, bubbles:true, button:0}));
-        canvas.dispatchEvent(new MouseEvent("click", {clientX:cx, clientY:cy, bubbles:true, button:0}));
-      }, delay);
-    }
-    // Tap at 3s, 5s, 7s, 9s to click through any splash/promo/tutorial screens
-    autoTap(3000);
-    autoTap(5000);
-    autoTap(7000);
-    autoTap(9000);
   });
+
+  // Skip splash screen: call StartButton.StartGame() to load the main scene.
+  // The Start scene has a "StartButton" GameObject with StartGame() that calls
+  // SceneManager.LoadScene("main"). We try multiple possible GameObject names.
+  function skipSplash(){
+    if(!window._ub) { setTimeout(skipSplash, 500); return; }
+    var names = ["StartButton", "Start Button", "PlayButton", "BtnStart", "Button"];
+    for(var i=0; i<names.length; i++){
+      window._ub.SendMessage(names[i], "StartGame", "");
+    }
+    // Also try LevelLoader as fallback
+    window._ub.SendMessage("LevelLoader", "LoadLevel", "main");
+    console.log("[Bridge] Sent StartGame to skip splash screen");
+  }
+  // Wait for Unity to finish loading, then skip
+  setTimeout(skipSplash, 3000);
+  setTimeout(skipSplash, 5000);
+  setTimeout(skipSplash, 8000);
 })();
 
 // Skip tutorial — pre-populate save.bin in IndexedDB before Unity reads it
