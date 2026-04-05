@@ -1,10 +1,11 @@
 name: Build Unity WebGL
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
   push:
     paths:
       - 'templates/unity-scripts/**'
+      - '.github/trigger-build'
 
 jobs:
   build:
@@ -63,7 +64,6 @@ jobs:
           echo "Build contents:"
           find "$BUILD_DIR" -type f | head -20
           ls -lah "$BUILD_DIR/Build/" || true
-          # Copy our WebGL template (with postMessage bridge) over Unity's default
           cp templates/unity-webgl/index.html "$BUILD_DIR/index.html"
 
       - name: Upload WebGL build artifact
