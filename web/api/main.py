@@ -376,6 +376,13 @@ async def api_bake_single(
             if candidate.exists():
                 tex_path = candidate
                 break
+            # Also search subdirectories (e.g. Characters/Cat/CatAlbedo.png)
+            if cat_info.get("recurse"):
+                for match in cat_dir.rglob(f"{element}.png"):
+                    tex_path = match
+                    break
+            if tex_path:
+                break
 
         if not tex_path:
             yield json.dumps({"type": "status", "message": f"Element '{element}' not found", "cls": "error"}) + "\n"
