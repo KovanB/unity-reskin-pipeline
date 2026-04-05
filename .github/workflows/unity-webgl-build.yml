@@ -57,6 +57,27 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
+      - name: Create custom build script
+        run: |
+          mkdir -p /tmp/trash-dash/Assets/Editor
+          cat > /tmp/trash-dash/Assets/Editor/WebGLBuilder.cs << 'CSHARP'
+          using UnityEditor;
+          using System.Linq;
+          public class WebGLBuilder
+          {
+              public static void Build()
+              {
+                  string[] scenes = EditorBuildSettings.scenes
+                      .Where(s => s.enabled)
+                      .Select(s => s.path)
+                      .ToArray();
+                  if (scenes.Length == 0)
+                      scenes = new[] { "Assets/Scenes/Start.unity", "Assets/Scenes/Main.unity", "Assets/Scenes/Shop.unity" };
+                  BuildPipeline.BuildPlayer(scenes, "build/TrashDash", BuildTarget.WebGL, BuildOptions.None);
+              }
+          }
+          CSHARP
+
       - name: Build WebGL
         uses: game-ci/unity-builder@v4
         env:
@@ -71,6 +92,7 @@ jobs:
           buildsPath: /tmp/builds
           versioning: None
           allowDirtyBuild: true
+          buildMethod: WebGLBuilder.Build
 
       - name: Prepare build output
         run: |
