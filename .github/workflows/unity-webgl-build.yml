@@ -65,10 +65,35 @@ jobs:
           find builds/ -type f | head -30
           ls -lah builds/WebGL/TrashDash/Build/ 2>/dev/null || ls -lah builds/WebGL/ 2>/dev/null || ls -lah builds/ 2>/dev/null
 
-      - name: Copy WebGL template
+      - name: Inject postMessage bridge into index.html
         run: |
           BUILD_DIR="builds/WebGL/TrashDash"
-          cp reskin/templates/unity-webgl/index.html "$BUILD_DIR/index.html"
+          # Add postMessage bridge script to Unity's generated index.html
+          # This injects a listener right before </body>
+          BRIDGE_SCRIPT='<script>
+          /* postMessage bridge: React parent <-> Unity */
+          var _unityInstance = null;
+          /* Override createUnityInstance to capture the instance */
+          var _origCreate = window.createUnityInstance;
+          if (typeof createUnityInstance !== "undefined") {
+            var _origFn = createUnityInstance;
+            createUnityInstance = function(canvas, config, onProgress) {
+              return _origFn(canvas, config, onProgress).then(function(instance) {
+                _unityInstance = instance;
+                window.parent.postMessage({source:"unity-loader",payload:{type:"loaded"}},"*");
+                return instance;
+              });
+            };
+          }
+          window.addEventListener("message", function(e) {
+            if (!e.data || e.data.source !== "react" || !_unityInstance) return;
+            var p = e.data.payload;
+            if (p.gameObject && p.method) _unityInstance.SendMessage(p.gameObject, p.method, p.data || "");
+          });
+          </script>'
+          # Inject before </body>
+          sed -i "s|</body>|${BRIDGE_SCRIPT}</body>|" "$BUILD_DIR/index.html"
+          echo "Bridge injected into index.html"
 
       - name: Upload WebGL build artifact
         uses: actions/upload-artifact@v4
