@@ -24,7 +24,8 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
           transition: "opacity 0.3s",
           pointerEvents: isCustomizing ? "none" : "auto",
         }}
-        allow="autoplay; fullscreen"
+        allow="autoplay; fullscreen; gamepad"
+        tabIndex={0}
       />
 
       {/* Placeholder when Unity build is not present */}
