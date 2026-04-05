@@ -16,23 +16,20 @@ jobs:
     steps:
       - name: Checkout reskin pipeline
         uses: actions/checkout@v4
+        with:
+          path: reskin
 
-      - name: Clone Trash Dash
+      - name: Clone Trash Dash into workspace
         run: |
-          git clone --depth 1 https://github.com/Unity-Technologies/EndlessRunnerSampleGame.git /tmp/trash-dash
+          git clone --depth 1 https://github.com/Unity-Technologies/EndlessRunnerSampleGame.git $GITHUB_WORKSPACE/trash-dash
 
-      - name: Copy reskin scripts into project and commit
+      - name: Copy reskin scripts into project
         run: |
-          cp templates/unity-scripts/TextureSwapper.cs /tmp/trash-dash/Assets/Scripts/
-          cp templates/unity-scripts/SkinLoader.cs /tmp/trash-dash/Assets/Scripts/
-          cp templates/unity-scripts/GamePauser.cs /tmp/trash-dash/Assets/Scripts/
-          mkdir -p /tmp/trash-dash/Assets/Plugins/WebGL/
-          cp templates/unity-scripts/Plugins/WebGL/WebGLBridge.jslib /tmp/trash-dash/Assets/Plugins/WebGL/
-          cd /tmp/trash-dash
-          git config user.name "CI"
-          git config user.email "ci@build"
-          git add -A
-          git commit -m "Add reskin scripts" --allow-empty
+          cp reskin/templates/unity-scripts/TextureSwapper.cs trash-dash/Assets/Scripts/
+          cp reskin/templates/unity-scripts/SkinLoader.cs trash-dash/Assets/Scripts/
+          cp reskin/templates/unity-scripts/GamePauser.cs trash-dash/Assets/Scripts/
+          mkdir -p trash-dash/Assets/Plugins/WebGL/
+          cp reskin/templates/unity-scripts/Plugins/WebGL/WebGLBridge.jslib trash-dash/Assets/Plugins/WebGL/
 
       - name: Free disk space
         run: |
@@ -43,40 +40,9 @@ jobs:
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
-          path: /tmp/trash-dash/Library
-          key: unity-library-webgl-${{ hashFiles('/tmp/trash-dash/Assets/**') }}
+          path: trash-dash/Library
+          key: unity-library-webgl-v1
           restore-keys: unity-library-webgl-
-
-      - name: Verify secrets exist
-        run: |
-          echo "UNITY_LICENSE length: ${#UNITY_LICENSE}"
-          echo "UNITY_EMAIL length: ${#UNITY_EMAIL}"
-          echo "UNITY_PASSWORD length: ${#UNITY_PASSWORD}"
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-
-      - name: Create custom build script
-        run: |
-          mkdir -p /tmp/trash-dash/Assets/Editor
-          cat > /tmp/trash-dash/Assets/Editor/WebGLBuilder.cs << 'CSHARP'
-          using UnityEditor;
-          using System.Linq;
-          public class WebGLBuilder
-          {
-              public static void Build()
-              {
-                  string[] scenes = EditorBuildSettings.scenes
-                      .Where(s => s.enabled)
-                      .Select(s => s.path)
-                      .ToArray();
-                  if (scenes.Length == 0)
-                      scenes = new[] { "Assets/Scenes/Start.unity", "Assets/Scenes/Main.unity", "Assets/Scenes/Shop.unity" };
-                  BuildPipeline.BuildPlayer(scenes, "build/TrashDash", BuildTarget.WebGL, BuildOptions.None);
-              }
-          }
-          CSHARP
 
       - name: Build WebGL
         uses: game-ci/unity-builder@v4
@@ -85,33 +51,35 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          projectPath: /tmp/trash-dash
+          projectPath: trash-dash
           targetPlatform: WebGL
           unityVersion: 2021.3.6f1
           buildName: TrashDash
-          buildsPath: /tmp/builds
+          buildsPath: builds
           versioning: None
           allowDirtyBuild: true
-          buildMethod: WebGLBuilder.Build
 
-      - name: Prepare build output
+      - name: List build output
         run: |
-          BUILD_DIR="/tmp/builds/WebGL/TrashDash"
-          echo "Build contents:"
-          find "$BUILD_DIR" -type f | head -20
-          ls -lah "$BUILD_DIR/Build/" || true
-          cp templates/unity-webgl/index.html "$BUILD_DIR/index.html"
+          echo "=== Build output ==="
+          find builds/ -type f | head -30
+          ls -lah builds/WebGL/TrashDash/Build/ 2>/dev/null || ls -lah builds/WebGL/ 2>/dev/null || ls -lah builds/ 2>/dev/null
+
+      - name: Copy WebGL template
+        run: |
+          BUILD_DIR="builds/WebGL/TrashDash"
+          cp reskin/templates/unity-webgl/index.html "$BUILD_DIR/index.html"
 
       - name: Upload WebGL build artifact
         uses: actions/upload-artifact@v4
         with:
           name: webgl-build
-          path: /tmp/builds/WebGL/TrashDash/
+          path: builds/WebGL/TrashDash/
           retention-days: 90
 
       - name: Push build to webgl-build branch
         run: |
-          cd /tmp/builds/WebGL/TrashDash
+          cd builds/WebGL/TrashDash
           git init
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
