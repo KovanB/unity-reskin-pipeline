@@ -4,18 +4,18 @@ import useSkinBaker from "../hooks/useSkinBaker";
 const API = import.meta.env.VITE_API_URL || "";
 
 const SKIN_PRESETS = [
-  { id: "dracula", label: "Dracula", emoji: "🧛", color: "#8B0000",
-    prompt: "Dracula gothic horror, dark crimson and purple, bat silhouettes, cobblestone, iron gates, fog, gothic stained glass, Victorian horror" },
-  { id: "alice", label: "Alice", emoji: "🐇", color: "#5B9BD5",
-    prompt: "Alice in Wonderland, whimsical Victorian fantasy, playing cards, checkerboard, mushrooms, pastel purple and teal, storybook" },
-  { id: "robinhood", label: "Robin Hood", emoji: "🏹", color: "#2E8B57",
-    prompt: "Robin Hood medieval forest, Sherwood Forest greens and browns, medieval village, archery targets, leaf motifs, rustic hand-painted" },
-  { id: "cyberpunk", label: "Cyberpunk", emoji: "🌆", color: "#ff00ff",
-    prompt: "cyberpunk neon, glowing edges, vibrant pink and cyan accents, holographic, futuristic sci-fi, neon signs, circuit patterns" },
-  { id: "oz", label: "Wizard of Oz", emoji: "👠", color: "#6495ED",
-    prompt: "Wizard of Oz, yellow brick road, emerald green, poppy fields, ruby red and emerald, whimsical storybook, rainbow" },
-  { id: "frankenstein", label: "Frankenstein", emoji: "🧟", color: "#4A6741",
-    prompt: "Frankenstein gothic laboratory, dark stone, electrical sparks, green torchlight, stitched leather, stormy night, mad science horror" },
+  { id: "gold", label: "Gold", emoji: "✨", color: "#FFD700",
+    prompt: "luxurious golden metallic texture, shiny gold surface, polished, warm highlights, premium feel" },
+  { id: "pixel", label: "Pixel Art", emoji: "🕹️", color: "#4FC3F7",
+    prompt: "retro pixel art style, 16-bit game aesthetic, chunky pixels, bright saturated colors, nostalgic" },
+  { id: "neon", label: "Neon", emoji: "💜", color: "#ff00ff",
+    prompt: "neon glowing edges, vibrant pink and cyan accents, dark background, futuristic, electric feel" },
+  { id: "sketch", label: "Hand Drawn", emoji: "✏️", color: "#888888",
+    prompt: "hand-drawn pencil sketch style, rough charcoal lines, crosshatching, black and white, artistic illustration" },
+  { id: "candy", label: "Candy", emoji: "🍬", color: "#FF69B4",
+    prompt: "candy and sweets themed, bright pastel colors, sugar-coated, gummy texture, playful and sweet" },
+  { id: "zombie", label: "Zombie", emoji: "🧟", color: "#4A6741",
+    prompt: "post-apocalyptic zombie themed, decayed and weathered, torn and scratched, dark green and brown, horror" },
 ];
 
 /**

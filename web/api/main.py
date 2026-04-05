@@ -50,6 +50,22 @@ def _get_demo_dir() -> Path:
 
 # Asset categories matching the real Trash Dash structure
 DEMO_CATEGORIES = {
+    "Characters": {
+        "label": "Characters",
+        "description": "Playable character skins — Cat, Dog, Raccoon",
+        "path": "Characters",
+        "recurse": True,
+    },
+    "Obstacles": {
+        "label": "Obstacles",
+        "description": "Trashcans, dumpsters, cars — things the player dodges",
+        "path": "Obstacles",
+    },
+    "Collectibles": {
+        "label": "Coins & Collectibles",
+        "description": "Fishbones, sardines — items the player collects",
+        "path": "Collectibles",
+    },
     "Graffiti": {
         "label": "Graffiti (Wall Art)",
         "description": "Street art textures on walls — the most visually impactful to reskin",
@@ -91,22 +107,24 @@ async def api_demo_info():
             continue
 
         textures = []
-        for png in sorted(cat_dir.glob("*.png")):
-            textures.append({
-                "name": png.stem,
-                "filename": png.name,
-                "category": cat_id,
-                "url": f"/api/demo/texture/{cat_info['path']}/{png.name}",
-            })
-
-        # Include subdir textures for Graffiti
-        if not cat_info.get("exclude_subdirs"):
+        if cat_info.get("recurse"):
+            # Scan subdirectories (e.g. Characters/Cat/CatAlbedo.png)
             for png in sorted(cat_dir.rglob("*.png")):
-                if png.parent != cat_dir:
-                    continue  # already handled above for direct children
+                rel = png.relative_to(assets_dir)
+                textures.append({
+                    "name": png.stem,
+                    "filename": png.name,
+                    "category": cat_id,
+                    "url": f"/api/demo/texture/{rel.as_posix()}",
+                })
         else:
-            # For Environment, only direct children (no Graffiti subdir)
-            pass
+            for png in sorted(cat_dir.glob("*.png")):
+                textures.append({
+                    "name": png.stem,
+                    "filename": png.name,
+                    "category": cat_id,
+                    "url": f"/api/demo/texture/{cat_info['path']}/{png.name}",
+                })
 
         categories[cat_id] = {
             "label": cat_info["label"],
