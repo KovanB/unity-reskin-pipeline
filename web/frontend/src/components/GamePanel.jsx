@@ -56,8 +56,13 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
               >
                 Play Game
               </button>
+              <a href="/unity/index.html" target="_blank" rel="noopener" style={{
+                fontSize: 12, color: "#7c5cfc", marginTop: 8, textDecoration: "underline", cursor: "pointer",
+              }}>
+                Open in full window
+              </a>
               <div style={{ fontSize: 12, color: "#6b6b80", marginTop: 4 }}>
-                Use arrow keys to play. Click Customize to reskin assets.
+                Use arrow keys to play. Click the game to interact.
               </div>
             </>
           ) : (
