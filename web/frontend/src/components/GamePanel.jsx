@@ -9,7 +9,7 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
   const [gameLoaded, setGameLoaded] = useState(false);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", background: "#000", borderRadius: 16, overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #4a90d9 0%, #87ceeb 100%)", borderRadius: 16, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {shouldLoad && (
         <iframe
           ref={ref}
@@ -20,6 +20,8 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
             position: "relative",
             zIndex: 1,
             width: "100%",
+            maxWidth: "calc(100vh * 960 / 600)",
+            aspectRatio: "960 / 600",
             height: "100%",
             border: "none",
             display: "block",
@@ -37,7 +39,7 @@ const GamePanel = forwardRef(function GamePanel({ onCustomize, isCustomizing }, 
         <div style={{
           position: "absolute", inset: 0, display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", gap: 16,
-          background: "linear-gradient(135deg, #0a0a1a 0%, #1a1030 100%)",
+          background: "linear-gradient(135deg, #0a0a1a 0%, #1a1030 100%)", borderRadius: 16,
           zIndex: shouldLoad ? 0 : 1,
         }}>
           <div style={{ fontSize: 48 }}>🎮</div>
