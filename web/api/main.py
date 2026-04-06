@@ -370,19 +370,27 @@ async def api_bake_single(
 
         # Find the original texture file
         tex_path = None
-        for cat_id, cat_info in DEMO_CATEGORIES.items():
-            cat_dir = demo_dir / "Assets" / cat_info["path"]
-            candidate = cat_dir / f"{element}.png"
-            if candidate.exists():
-                tex_path = candidate
-                break
-            # Also search subdirectories (e.g. Characters/Cat/CatAlbedo.png)
-            if cat_info.get("recurse"):
-                for match in cat_dir.rglob(f"{element}.png"):
-                    tex_path = match
+
+        # Check bundled 3D model textures first (e.g. fox_texture.png)
+        models_dir = Path(__file__).parent.parent.parent / "web" / "frontend" / "public" / "models"
+        candidate = models_dir / f"{element}.png"
+        if candidate.exists():
+            tex_path = candidate
+
+        # Then check demo project assets
+        if not tex_path:
+            for cat_id, cat_info in DEMO_CATEGORIES.items():
+                cat_dir = demo_dir / "Assets" / cat_info["path"]
+                candidate = cat_dir / f"{element}.png"
+                if candidate.exists():
+                    tex_path = candidate
                     break
-            if tex_path:
-                break
+                if cat_info.get("recurse"):
+                    for match in cat_dir.rglob(f"{element}.png"):
+                        tex_path = match
+                        break
+                if tex_path:
+                    break
 
         if not tex_path:
             yield json.dumps({"type": "status", "message": f"Element '{element}' not found", "cls": "error"}) + "\n"
