@@ -59,7 +59,7 @@ class LucyBackend(GeneratorBackend):
 
     def generate(self, source_image, style_prompt, style_refs, asset_info):
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key,
         }
 
         # Convert source image to PNG bytes for multipart upload
