@@ -5,18 +5,18 @@ import useSkinBaker from "../hooks/useSkinBaker";
 const API = import.meta.env.VITE_API_URL || "";
 
 const PRESETS = [
-  { id: "armor", label: "Knight Armor", color: "#8B8B8B", prompt: "medieval knight armor, polished steel plates, chainmail, battle-worn metal" },
-  { id: "cyber", label: "Cyberpunk", color: "#00ffff", prompt: "cyberpunk neon outfit, glowing circuit patterns, dark tech suit with cyan accents" },
-  { id: "gold", label: "Golden", color: "#FFD700", prompt: "luxurious golden skin, polished gold surface, ornate metallic texture" },
-  { id: "lava", label: "Lava", color: "#FF4500", prompt: "molten lava skin, glowing orange cracks through dark volcanic rock" },
-  { id: "ice", label: "Frozen", color: "#87CEEB", prompt: "frozen ice skin, translucent blue crystals, frost patterns, glacial texture" },
-  { id: "zombie", label: "Undead", color: "#4A6741", prompt: "undead zombie skin, decayed flesh, exposed bone, torn rotting texture" },
-  { id: "galaxy", label: "Cosmic", color: "#6B5CE7", prompt: "cosmic galaxy skin, swirling nebula patterns, glowing stars, deep space" },
-  { id: "wood", label: "Wooden", color: "#8B6914", prompt: "carved wooden puppet, wood grain texture, polished mahogany, puppet joints" },
+  { id: "suit", label: "Business Suit", color: "#2C3E50", prompt: "sharp navy business suit, white dress shirt, silk tie, polished shoes, professional" },
+  { id: "streetwear", label: "Streetwear", color: "#E74C3C", prompt: "urban streetwear, oversized hoodie, baggy cargo pants, sneakers, hip hop style" },
+  { id: "armor", label: "Knight Armor", color: "#8B8B8B", prompt: "medieval knight armor, polished steel plates, chainmail, leather straps, battle-worn" },
+  { id: "cyber", label: "Cyberpunk", color: "#00ffff", prompt: "futuristic cyberpunk outfit, neon glowing accents, dark tech bodysuit, holographic panels" },
+  { id: "leather", label: "Leather Jacket", color: "#8B4513", prompt: "black leather biker jacket, white t-shirt, dark jeans, motorcycle boots, rebel style" },
+  { id: "athletic", label: "Athletic", color: "#27AE60", prompt: "athletic sportswear, compression shirt, running shorts, sport shoes, fitness gear" },
+  { id: "formal", label: "Tuxedo", color: "#1A1A2E", prompt: "black tuxedo, white bow tie, cummerbund, patent leather shoes, elegant formal wear" },
+  { id: "military", label: "Military", color: "#556B2F", prompt: "military tactical gear, camouflage uniform, combat boots, tactical vest, army style" },
 ];
 
 export default function CharacterStudio() {
-  const [textureUrl, setTextureUrl] = useState("/models/fox_texture.png");
+  const [textureUrl, setTextureUrl] = useState("/models/character_texture.png");
   const [prompt, setPrompt] = useState("");
   const [activePreset, setActivePreset] = useState(-1);
   const [savedSkins, setSavedSkins] = useState([]);
@@ -40,7 +40,7 @@ export default function CharacterStudio() {
 
   const handleGenerate = () => {
     if (!prompt || status === "running") return;
-    bake({ element: "fox_texture", style_prompt: prompt, strength: 0.8 });
+    bake({ element: "character_texture", style_prompt: prompt, strength: 0.8 });
   };
 
   const handleApprove = () => {
@@ -50,7 +50,7 @@ export default function CharacterStudio() {
     setActiveSkinName(skinName);
 
     // Persist to server
-    fetch(`${API}/api/approve?skin_id=${skinName.toLowerCase().replace(/\s+/g, '_')}&element=fox_texture&category=Characters`, {
+    fetch(`${API}/api/approve?skin_id=${skinName.toLowerCase().replace(/\s+/g, '_')}&element=character_texture&category=Characters`, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: result.reskinned,
@@ -69,7 +69,7 @@ export default function CharacterStudio() {
   };
 
   const handleReset = () => {
-    setTextureUrl("/models/fox_texture.png");
+    setTextureUrl("/models/character_texture.png");
     setActiveSkinName("Default");
     reset();
   };

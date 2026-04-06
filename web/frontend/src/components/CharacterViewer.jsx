@@ -51,8 +51,8 @@ function Character({ textureUrl }) {
   return (
     <primitive
       object={scene}
-      scale={0.025}
-      position={[0, -1, 0]}
+      scale={1.2}
+      position={[0, -1.1, 0]}
       rotation={[0, 0, 0]}
     />
   );
