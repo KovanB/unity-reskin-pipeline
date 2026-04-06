@@ -14,6 +14,10 @@ export default function App() {
   useEffect(() => {
     if (!isReady || !approvedSkin) return;
     applyTexture(approvedSkin.element, approvedSkin.base64Png);
+    // Retry a few times in case Unity needs a moment
+    const t1 = setTimeout(() => applyTexture(approvedSkin.element, approvedSkin.base64Png), 2000);
+    const t2 = setTimeout(() => applyTexture(approvedSkin.element, approvedSkin.base64Png), 5000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [isReady, approvedSkin]);
 
   const handlePlay = (skinData) => {

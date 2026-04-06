@@ -4,14 +4,14 @@ import useSkinBaker from "../hooks/useSkinBaker";
 const API = import.meta.env.VITE_API_URL || "";
 
 const PRESETS = [
-  { id: "gold", label: "Gold", color: "#FFD700", prompt: "luxurious golden metallic texture, shiny gold surface, polished, warm highlights" },
-  { id: "pixel", label: "Pixel Art", color: "#4FC3F7", prompt: "retro pixel art style, 16-bit game aesthetic, chunky pixels, bright saturated colors" },
-  { id: "neon", label: "Neon", color: "#ff00ff", prompt: "neon glowing edges, vibrant pink and cyan accents, dark background, futuristic" },
-  { id: "sketch", label: "Hand Drawn", color: "#999", prompt: "hand-drawn pencil sketch style, rough charcoal lines, crosshatching, black and white" },
-  { id: "candy", label: "Candy", color: "#FF69B4", prompt: "candy and sweets themed, bright pastel colors, sugar-coated, gummy texture" },
-  { id: "zombie", label: "Zombie", color: "#4A6741", prompt: "post-apocalyptic zombie themed, decayed and weathered, torn, dark green and brown, horror" },
-  { id: "galaxy", label: "Galaxy", color: "#6B5CE7", prompt: "cosmic galaxy nebula texture, swirling stars, deep purple and blue space, glowing" },
-  { id: "lava", label: "Lava", color: "#FF4500", prompt: "molten lava surface, glowing orange cracks, volcanic rock, fiery, intense heat" },
+  { id: "gold", label: "Gold", color: "#FFD700", prompt: "golden metallic fur, shiny polished gold surface with warm highlights" },
+  { id: "pixel", label: "Pixel Art", color: "#4FC3F7", prompt: "pixelated 16-bit retro game character, chunky pixel blocks, bright saturated colors" },
+  { id: "neon", label: "Neon", color: "#ff00ff", prompt: "neon glowing outlines on dark fur, vibrant pink and cyan accents, cyberpunk cat" },
+  { id: "sketch", label: "Hand Drawn", color: "#999", prompt: "pencil sketch style cat, charcoal crosshatching, black and white illustration" },
+  { id: "candy", label: "Candy", color: "#FF69B4", prompt: "candy-coated cat, bright pastel pink and blue, sugar sprinkles, sweet gummy look" },
+  { id: "zombie", label: "Zombie", color: "#4A6741", prompt: "zombie cat with decayed patchy fur, stitches, dark green and brown, horror themed" },
+  { id: "galaxy", label: "Galaxy", color: "#6B5CE7", prompt: "cosmic galaxy fur with swirling nebula patterns, deep purple and blue, glowing stars" },
+  { id: "lava", label: "Lava", color: "#FF4500", prompt: "molten lava cat, glowing orange cracks through dark rock skin, fiery ember fur" },
 ];
 
 export default function SkinScreen({ onPlay }) {

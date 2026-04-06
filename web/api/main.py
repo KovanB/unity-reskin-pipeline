@@ -11,7 +11,7 @@ import shutil
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -451,12 +451,17 @@ async def api_approve(
     element: str = "Graffiti01",
     category: str = "Graffiti",
     base64_png: str = "",
+    request: Request = None,
 ):
     """
-    Persist an approved texture. Pass base64_png as query param or JSON body.
+    Persist an approved texture. Pass base64_png as query param or raw body.
     Saves to DATA_ROOT/skins/{skin_id}/{category}/{element}.png
     """
     import base64
+
+    # Read from body if not in query params
+    if not base64_png and request:
+        base64_png = (await request.body()).decode("utf-8").strip()
 
     if not base64_png:
         return {"error": "base64_png is required"}

@@ -70,9 +70,17 @@ class LucyBackend(GeneratorBackend):
         files = {
             "data": ("source.png", buf, "image/png"),
         }
+        # Wrap the user's style prompt so Lucy treats this as a texture reskin,
+        # preserving the UV layout and structure of the original image.
+        full_prompt = (
+            f"Reskin this game character texture map in the following style: {style_prompt}. "
+            "Keep the exact same UV layout, shape, and structure of the original texture. "
+            "Only change the colors, patterns, and surface appearance."
+        )
         data = {
-            "prompt": style_prompt,
-            "resolution": "720p",
+            "prompt": full_prompt,
+            "resolution": "480p",
+            "enhance_prompt": "false",
         }
 
         # Add reference image if provided
