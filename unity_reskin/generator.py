@@ -48,11 +48,11 @@ class GeneratorBackend(ABC):
 
 
 class LucyBackend(GeneratorBackend):
-    """Decart Lucy API backend."""
+    """Decart Lucy API backend (img2img via lucy-pro-i2i)."""
 
     def __init__(self, config: SkinConfig):
         super().__init__(config)
-        self.api_url = config.api_url or "https://api.decart.ai/v1"
+        self.api_url = config.api_url or "https://api.decart.ai/v1/generate/lucy-pro-i2i"
         self.api_key = config.api_key.strip() if config.api_key else None
         if not self.api_key:
             raise ValueError("Lucy backend requires api_key in config")
@@ -60,24 +60,33 @@ class LucyBackend(GeneratorBackend):
     def generate(self, source_image, style_prompt, style_refs, asset_info):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
         }
-        payload = {
+
+        # Convert source image to PNG bytes for multipart upload
+        buf = io.BytesIO()
+        source_image.convert("RGB").save(buf, format="PNG")
+        buf.seek(0)
+
+        files = {
+            "data": ("source.png", buf, "image/png"),
+        }
+        data = {
             "prompt": style_prompt,
-            "image": self._encode_image_base64(source_image),
-            "strength": self.quality.strength,
-            "guidance_scale": self.quality.guidance_scale,
-            "num_inference_steps": self.quality.steps,
+            "resolution": "720p",
         }
+
+        # Add reference image if provided
         if style_refs:
-            payload["style_images"] = [self._encode_image_base64(ref) for ref in style_refs]
+            ref_buf = io.BytesIO()
+            style_refs[0].convert("RGB").save(ref_buf, format="PNG")
+            ref_buf.seek(0)
+            files["reference_image"] = ("ref.png", ref_buf, "image/png")
 
         with httpx.Client(timeout=120) as client:
-            resp = client.post(f"{self.api_url}/generate", headers=headers, json=payload)
+            resp = client.post(self.api_url, headers=headers, files=files, data=data)
             resp.raise_for_status()
-            result = resp.json()
 
-        return self._decode_image_base64(result["image"])
+        return Image.open(io.BytesIO(resp.content)).convert("RGBA")
 
 
 class StabilityBackend(GeneratorBackend):
