@@ -429,7 +429,11 @@ async def api_bake_single(
             gen_backend = get_backend(config)
 
             source = load_image(tex_path)
-            asset_info = {"relative_path": str(tex_path.relative_to(demo_dir / "Assets")), "category": "single"}
+            try:
+                rel_path = str(tex_path.relative_to(demo_dir / "Assets"))
+            except ValueError:
+                rel_path = tex_path.name
+            asset_info = {"relative_path": rel_path, "category": "single"}
             result = await asyncio.to_thread(gen_backend.generate, source, style_prompt, [], asset_info)
 
             def to_b64(img):
