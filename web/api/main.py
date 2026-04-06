@@ -531,6 +531,167 @@ async def api_active_skins(skin_id: str = "custom"):
     return {"skin_id": skin_id, "textures": textures}
 
 
+# ──────────────────────────── Meshy Retexture (3D-aware texturing) ──────────
+
+@app.post("/api/retexture")
+async def api_retexture(
+    style_prompt: str = "red samurai armor",
+):
+    """
+    Retexture the character model via Meshy.ai.
+    Uploads the GLB, sends a text prompt, polls for result.
+    Returns streaming NDJSON with progress and final model URL.
+    """
+    import base64
+    import httpx
+    import time
+
+    meshy_key = os.environ.get("MESHY_API_KEY", "")
+    if not meshy_key:
+        async def err():
+            yield json.dumps({"type": "error", "message": "MESHY_API_KEY not set — add it in Vercel env vars"}) + "\n"
+        return StreamingResponse(err(), media_type="application/x-ndjson")
+
+    async def retexture_stream():
+        # Read the GLB model file
+        model_path = Path(__file__).parent.parent.parent / "web" / "frontend" / "public" / "models" / "character.glb"
+        if not model_path.exists():
+            yield json.dumps({"type": "error", "message": "character.glb not found"}) + "\n"
+            return
+
+        with open(model_path, "rb") as f:
+            model_bytes = f.read()
+        model_b64 = base64.b64encode(model_bytes).decode()
+        model_data_uri = f"data:application/octet-stream;base64,{model_b64}"
+
+        yield json.dumps({"type": "status", "message": "Uploading model to Meshy..."}) + "\n"
+
+        headers = {
+            "Authorization": f"Bearer {meshy_key}",
+            "Content-Type": "application/json",
+        }
+
+        # Create retexture task
+        payload = {
+            "model_url": model_data_uri,
+            "text_style_prompt": style_prompt,
+            "enable_original_uv": True,
+            "enable_pbr": True,
+            "target_formats": ["glb"],
+        }
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.meshy.ai/openapi/v1/retexture",
+                headers=headers,
+                json=payload,
+            )
+            if resp.status_code != 202:
+                yield json.dumps({"type": "error", "message": f"Meshy API error {resp.status_code}: {resp.text}"}) + "\n"
+                return
+
+            task_id = resp.json().get("result")
+            if not task_id:
+                yield json.dumps({"type": "error", "message": f"No task ID returned: {resp.text}"}) + "\n"
+                return
+
+        yield json.dumps({"type": "status", "message": f"Processing (task {task_id[:8]}...)", "task_id": task_id}) + "\n"
+
+        # Poll for completion
+        async with httpx.AsyncClient(timeout=30) as client:
+            for attempt in range(120):  # Max ~10 minutes
+                await asyncio.sleep(5)
+
+                poll_resp = await client.get(
+                    f"https://api.meshy.ai/openapi/v1/retexture/{task_id}",
+                    headers={"Authorization": f"Bearer {meshy_key}"},
+                )
+                if poll_resp.status_code != 200:
+                    yield json.dumps({"type": "error", "message": f"Poll error: {poll_resp.status_code}"}) + "\n"
+                    return
+
+                task = poll_resp.json()
+                status = task.get("status", "")
+                progress = task.get("progress", 0)
+
+                if status == "IN_PROGRESS":
+                    yield json.dumps({"type": "status", "message": f"Generating texture... {progress}%", "progress": progress}) + "\n"
+                elif status == "SUCCEEDED":
+                    model_urls = task.get("model_urls", {})
+                    texture_urls = task.get("texture_urls", [])
+                    glb_url = model_urls.get("glb", "")
+
+                    yield json.dumps({
+                        "type": "done",
+                        "message": "Retexture complete!",
+                        "model_url": glb_url,
+                        "texture_urls": texture_urls,
+                        "task_id": task_id,
+                    }) + "\n"
+                    return
+                elif status == "FAILED":
+                    yield json.dumps({"type": "error", "message": f"Meshy task failed: {task.get('task_error', {}).get('message', 'Unknown error')}"}) + "\n"
+                    return
+
+        yield json.dumps({"type": "error", "message": "Timeout waiting for Meshy result"}) + "\n"
+
+    return StreamingResponse(retexture_stream(), media_type="application/x-ndjson")
+
+
+@app.post("/api/retexture/save")
+async def api_retexture_save(
+    skin_id: str = "custom",
+    model_url: str = "",
+):
+    """
+    Download a retextured model from Meshy and save it permanently.
+    """
+    import httpx
+
+    if not model_url:
+        raise HTTPException(400, "model_url is required")
+
+    skins_dir = DATA_ROOT / "skins" / skin_id
+    skins_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download the GLB
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.get(model_url)
+        resp.raise_for_status()
+
+    out_path = skins_dir / "character.glb"
+    with open(out_path, "wb") as f:
+        f.write(resp.content)
+
+    return {"status": "saved", "skin_id": skin_id, "path": str(out_path), "size": len(resp.content)}
+
+
+@app.get("/api/retexture/skins")
+async def api_retexture_skins():
+    """List all saved retextured skins."""
+    skins_dir = DATA_ROOT / "skins"
+    if not skins_dir.exists():
+        return {"skins": []}
+
+    skins = []
+    for d in sorted(skins_dir.iterdir()):
+        if d.is_dir() and (d / "character.glb").exists():
+            skins.append({
+                "skin_id": d.name,
+                "model_url": f"/api/retexture/skins/{d.name}/model",
+            })
+    return {"skins": skins}
+
+
+@app.get("/api/retexture/skins/{skin_id}/model")
+async def api_retexture_skin_model(skin_id: str):
+    """Serve a saved retextured model."""
+    model_path = DATA_ROOT / "skins" / skin_id / "character.glb"
+    if not model_path.exists():
+        raise HTTPException(404, "Skin not found")
+    return FileResponse(model_path, media_type="model/gltf-binary", filename=f"{skin_id}.glb")
+
+
 # ──────────────────────────── Job endpoints (advanced mode) ──────────────────
 
 @app.post("/api/jobs")

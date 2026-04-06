@@ -1,59 +1,36 @@
-import { Suspense, useRef, useEffect, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Environment } from "@react-three/drei";
+import { Suspense, useRef, useEffect, useState, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 
-function Character({ textureUrl }) {
-  const { scene } = useGLTF("/models/character.glb");
+function Character({ url }) {
+  const { scene, animations } = useGLTF(url);
   const mixerRef = useRef(null);
-  const [texture, setTexture] = useState(null);
 
-  // Load and play idle animation
-  const { animations } = useGLTF("/models/character.glb");
+  // Clone the scene so React Three Fiber doesn't complain about reuse
+  const clonedScene = useMemo(() => scene.clone(true), [scene]);
+
+  // Play idle animation if available
   useEffect(() => {
     if (animations.length > 0) {
-      const mixer = new THREE.AnimationMixer(scene);
-      // Use "Survey" (idle-like) animation if available, otherwise first
+      const mixer = new THREE.AnimationMixer(clonedScene);
       const clip = animations.find(a => a.name === "Survey") || animations[0];
       const action = mixer.clipAction(clip);
       action.play();
       mixerRef.current = mixer;
       return () => mixer.stopAllAction();
     }
-  }, [animations, scene]);
+  }, [animations, clonedScene]);
 
   useFrame((_, delta) => {
     mixerRef.current?.update(delta);
   });
 
-  // Load texture when URL changes
-  useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load(textureUrl, (tex) => {
-      tex.flipY = false; // GLTF textures are flipped
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.needsUpdate = true;
-      setTexture(tex);
-    });
-  }, [textureUrl]);
-
-  // Apply texture to the model
-  useEffect(() => {
-    if (!texture) return;
-    scene.traverse((child) => {
-      if (child.isMesh && child.material) {
-        child.material.map = texture;
-        child.material.needsUpdate = true;
-      }
-    });
-  }, [texture, scene]);
-
   return (
     <primitive
-      object={scene}
+      object={clonedScene}
       scale={1.2}
       position={[0, -1.1, 0]}
-      rotation={[0, 0, 0]}
     />
   );
 }
@@ -75,16 +52,18 @@ function Turntable({ children }) {
   );
 }
 
-function Floor() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]} receiveShadow>
-      <circleGeometry args={[3, 64]} />
-      <meshStandardMaterial color="#111118" roughness={0.8} />
-    </mesh>
-  );
-}
+export default function CharacterViewer({ modelUrl }) {
+  // Force re-mount when model URL changes by using it as a key
+  const [currentUrl, setCurrentUrl] = useState(modelUrl);
 
-export default function CharacterViewer({ textureUrl }) {
+  useEffect(() => {
+    // Clear cache for old model and load new one
+    if (modelUrl !== currentUrl) {
+      useGLTF.preload(modelUrl);
+      setCurrentUrl(modelUrl);
+    }
+  }, [modelUrl]);
+
   return (
     <Canvas
       camera={{ position: [0, 0.5, 3], fov: 45 }}
@@ -98,9 +77,14 @@ export default function CharacterViewer({ textureUrl }) {
 
       <Suspense fallback={null}>
         <Turntable>
-          <Character textureUrl={textureUrl} />
+          <Character key={currentUrl} url={currentUrl} />
         </Turntable>
-        <Floor />
+
+        {/* Floor */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.1, 0]} receiveShadow>
+          <circleGeometry args={[3, 64]} />
+          <meshStandardMaterial color="#111118" roughness={0.8} />
+        </mesh>
       </Suspense>
 
       <OrbitControls
