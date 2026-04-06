@@ -31,7 +31,8 @@
   "functions": {
     "api/index.py": {
       "runtime": "@vercel/python@4.5.0",
-      "maxDuration": 300
+      "maxDuration": 300,
+      "excludeFiles": "{web/frontend/node_modules/**,web/frontend/dist/**,web/frontend/public/unity/Build/**,web/frontend/public/unity/StreamingAssets/**,web/frontend/public/unity/TemplateData/**,.git/**,examples/**}"
     }
   }
 }

@@ -1,0 +1,8 @@
+web/frontend/node_modules
+web/frontend/dist
+web/frontend/public/unity/Build
+web/frontend/public/unity/StreamingAssets
+examples
+*.egg-info
+__pycache__
+.git
